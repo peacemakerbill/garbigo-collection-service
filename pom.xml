@@ -106,6 +106,18 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
+        <!-- Transactional HTML emails (MailService), matching auth-service's spring.mail.* config -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- Renders the HTML email templates under src/main/resources/templates/email -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
         <!--
           JWT validation (see the jjwt.version note above). jjwt-impl and
           jjwt-jackson are runtime-only implementation details behind the
@@ -137,6 +149,19 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+          Merges META-INF/additional-spring-configuration-metadata.json with
+          the auto-generated metadata at compile time, which is what lets
+          IDEs resolve jwt.secret, internal.api-key, app.*, services.*, etc.
+          in application.yml instead of flagging them as unknown properties.
+          Annotation-processor only - never bundled into the runtime jar.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
 

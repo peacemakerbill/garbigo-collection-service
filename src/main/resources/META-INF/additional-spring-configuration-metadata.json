@@ -1,0 +1,72 @@
+{
+  "properties": [
+    {
+      "name": "jwt.secret",
+      "type": "java.lang.String",
+      "description": "HMAC signing key used to validate incoming JWTs. Must be the IDENTICAL value configured in garbigo-auth-service, or every signature check on an incoming token fails.",
+      "sourceType": "com.garbigo.collection.security.JwtUtil"
+    },
+    {
+      "name": "internal.api-key",
+      "type": "java.lang.String",
+      "description": "Shared secret sent on the X-Internal-Api-Key header of outgoing Feign calls. Must be the IDENTICAL value configured in garbigo-auth-service's InternalApiKeyFilter.",
+      "sourceType": "com.garbigo.collection.config.FeignConfig"
+    },
+    {
+      "name": "rabbitmq.queue.user-created",
+      "type": "java.lang.String",
+      "description": "Name of auth-service's existing RabbitMQ queue this service consumes user-created events from. Same property path and env var name (RABBITMQ_QUEUE_USER_CREATED) as auth-service uses on the publishing side.",
+      "sourceType": "com.garbigo.collection.config.RabbitMQConfig",
+      "defaultValue": "user-created-queue"
+    },
+    {
+      "name": "services.auth.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL AuthServiceClient uses to call garbigo-auth-service over Feign.",
+      "sourceType": "com.garbigo.collection.client.AuthServiceClient",
+      "defaultValue": "http://localhost:8080"
+    },
+    {
+      "name": "services.wallet.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL WalletServiceClient will use to call garbigo-wallet-service over Feign, once that service exists. Not called anywhere yet.",
+      "sourceType": "com.garbigo.collection.client.WalletServiceClient",
+      "defaultValue": "http://localhost:8082"
+    },
+    {
+      "name": "app.name",
+      "type": "java.lang.String",
+      "description": "Display name shown in the header of outgoing HTML emails.",
+      "sourceType": "com.garbigo.collection.notification.MailService",
+      "defaultValue": "Garbigo"
+    },
+    {
+      "name": "app.url",
+      "type": "java.lang.String",
+      "description": "Front-end app URL linked from outgoing HTML emails (e.g. the \"View in Garbigo\" button).",
+      "sourceType": "com.garbigo.collection.notification.MailService",
+      "defaultValue": "http://localhost:3000"
+    },
+    {
+      "name": "app.support-email",
+      "type": "java.lang.String",
+      "description": "Support contact address shown in the footer of outgoing HTML emails.",
+      "sourceType": "com.garbigo.collection.notification.MailService",
+      "defaultValue": "support@garbigo.com"
+    },
+    {
+      "name": "app.company.name",
+      "type": "java.lang.String",
+      "description": "Company name shown in the footer and copyright line of outgoing HTML emails.",
+      "sourceType": "com.garbigo.collection.notification.MailService",
+      "defaultValue": "Garbigo Ltd"
+    },
+    {
+      "name": "app.company.address",
+      "type": "java.lang.String",
+      "description": "Company address shown in the footer of outgoing HTML emails.",
+      "sourceType": "com.garbigo.collection.notification.MailService",
+      "defaultValue": "Nairobi, Kenya"
+    }
+  ]
+}

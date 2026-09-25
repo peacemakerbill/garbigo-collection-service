@@ -5,9 +5,9 @@ import com.garbigo.collection.dto.ComplaintResponse;
 import com.garbigo.collection.exception.CustomException;
 import com.garbigo.collection.model.Complaint;
 import com.garbigo.collection.model.ComplaintStatus;
+import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.ComplaintRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
+    private final UserSummaryService userSummaryService;
+    private final MailService mailService;
 
     public ComplaintResponse create(String reporterId, ComplaintCreateRequest request) {
         Complaint saved = complaintRepository.save(
@@ -46,9 +48,26 @@ public class ComplaintService {
 
     public ComplaintResponse resolve(String id) {
         Complaint existing = complaintRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Complaint not found: " + id, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Complaint not found: " + id));
         existing.setStatus(ComplaintStatus.RESOLVED);
-        return toResponse(complaintRepository.save(existing));
+        Complaint saved = complaintRepository.save(existing);
+        notifyReporterOfResolution(saved);
+        return toResponse(saved);
+    }
+
+    /**
+     * Best-effort notification - a missing/stale UserSummary cache entry
+     * just means no email goes out, not a failed resolve.
+     */
+    private void notifyReporterOfResolution(Complaint complaint) {
+        userSummaryService.findById(complaint.getReporterId()).ifPresent(reporter ->
+                mailService.sendComplaintResolved(
+                        reporter.getEmail(),
+                        reporter.getDisplayUsername(),
+                        complaint.getId(),
+                        complaint.getDescription()
+                )
+        );
     }
 
     private ComplaintResponse toResponse(Complaint entity) {

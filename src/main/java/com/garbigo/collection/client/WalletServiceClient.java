@@ -15,6 +15,6 @@ import org.springframework.cloud.openfeign.FeignClient;
  * a payment completed - is handled separately, over RabbitMQ, by
  * {@link com.garbigo.collection.messaging.PaymentConfirmedEventListener}.
  */
-@FeignClient(name = "wallet-service", url = "${garbigo.wallet-service.base-url}")
+@FeignClient(name = "wallet-service", url = "${services.wallet.base-url}")
 public interface WalletServiceClient {
 }

@@ -25,7 +25,7 @@ public class JwtUtil {
 
     private final SecretKey signingKey;
 
-    public JwtUtil(@Value("${garbigo.jwt.secret}") String jwtSecret) {
+    public JwtUtil(@Value("${jwt.secret}") String jwtSecret) {
         this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 

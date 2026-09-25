@@ -9,7 +9,6 @@ import com.garbigo.collection.model.Location;
 import com.garbigo.collection.model.RecurringSchedule;
 import com.garbigo.collection.repository.RecurringScheduleRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -63,9 +62,9 @@ public class SchedulingService {
 
     private RecurringSchedule findOwnedByOrThrow(String id, String clientId) {
         RecurringSchedule existing = recurringScheduleRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Schedule not found: " + id, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException("Schedule not found: " + id));
         if (!clientId.equals(existing.getClientId())) {
-            throw new CustomException("Only the owning client can modify this schedule", HttpStatus.FORBIDDEN);
+            throw new CustomException("Only the owning client can modify this schedule");
         }
         return existing;
     }

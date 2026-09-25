@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Shared header/footer for every email under templates/email/. Included via
+  th:insert="~{email/fragments/layout :: header}" / :: footer.
+  Inline styles throughout - most email clients strip <style> blocks.
+-->
+
+<table th:fragment="header" role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background-color:#1b4332;">
+    <tr>
+        <td style="padding:24px 32px;text-align:center;">
+            <span style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">
+                &#128465;&#65039; <span th:text="${appName}">Garbigo</span>
+            </span>
+        </td>
+    </tr>
+</table>
+
+<table th:fragment="footer" role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background-color:#f4f6f5;border-top:1px solid #e2e6e4;">
+    <tr>
+        <td style="padding:24px 32px;text-align:center;">
+            <p style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#6b7a75;margin:0 0 6px;">
+                Sent <span th:text="${sentAt}">1 Jan 2026, 00:00 UTC</span> &middot;
+                questions go to
+                <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}"
+                   style="color:#2d6a4f;text-decoration:none;">support@garbigo.com</a>
+            </p>
+            <p style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#6b7a75;margin:0 0 6px;">
+                <span th:text="${companyName}">Garbigo Ltd</span> &middot;
+                <span th:text="${companyAddress}">Nairobi, Kenya</span>
+            </p>
+            <p style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;color:#9aa8a3;margin:0;">
+                &copy; <span th:text="${year}">2026</span>
+                <span th:text="${companyName}">Garbigo Ltd</span>. All rights reserved.
+            </p>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

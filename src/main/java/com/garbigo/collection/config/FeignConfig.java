@@ -19,14 +19,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class FeignConfig {
 
-    @Value("${garbigo.internal-api.header-name}")
-    private String internalApiKeyHeaderName;
+    private static final String INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key";
 
-    @Value("${garbigo.internal-api.key}")
+    @Value("${internal.api-key}")
     private String internalApiKey;
 
     @Bean
-    public RequestInterceptor internalApiKeyInterceptor() {
-        return requestTemplate -> requestTemplate.header(internalApiKeyHeaderName, internalApiKey);
+    RequestInterceptor internalApiKeyInterceptor() {
+        return requestTemplate -> requestTemplate.header(INTERNAL_API_KEY_HEADER, internalApiKey);
     }
 }

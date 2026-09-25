@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.PathVariable;
  * INTERNAL_API_KEY via {@link com.garbigo.collection.config.FeignConfig},
  * which auth-service's InternalApiKeyFilter already accepts.
  *
+ * <p>{@code @PathVariable} below has no explicit name - Spring Boot's
+ * parent POM compiles with {@code -parameters}, so the parameter's own
+ * name ({@code id}) is enough to match {@code {id}} in the path.
+ *
  * <p>TODO: the endpoint below ({@code GET /users/{id}}) is a guess at
  * auth-service's shape, matching the user-management endpoints listed in
  * its Postman collection - confirm the real path once auth-service's
@@ -20,9 +24,9 @@ import org.springframework.web.bind.annotation.PathVariable;
  * directly, since auth-service's full profile almost certainly returns more
  * fields than this service's local cache does.
  */
-@FeignClient(name = "auth-service", url = "${garbigo.auth-service.base-url}")
+@FeignClient(name = "auth-service", url = "${services.auth.base-url}")
 public interface AuthServiceClient {
 
     @GetMapping("/users/{id}")
-    UserSummary getUserById(@PathVariable("id") String id);
+    UserSummary getUserById(@PathVariable String id);
 }
