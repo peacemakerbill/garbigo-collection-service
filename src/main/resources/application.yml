@@ -1,0 +1,53 @@
+spring:
+  config:
+    # Same trick as auth-service: load a local .env file (plain KEY=VALUE
+    # lines), parsed with the .properties loader via the bracket suffix.
+    # "optional:" means startup doesn't fail when the file is absent (e.g. in
+    # an environment where the variables are injected directly).
+    import: optional:file:.env[.properties]
+
+  application:
+    name: garbigo-collection-service
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+    redis:
+      # Must be the SAME Redis instance auth-service uses - shared JWT
+      # revocation denylist (revoked:jti:* keys), not a separate cache.
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  rabbitmq:
+    # Same broker as auth-service - this service consumes its existing
+    # user-created-queue rather than owning a separate broker.
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+# --- Garbigo-specific config -----------------------------------------------
+garbigo:
+  jwt:
+    # Must be the IDENTICAL value configured in auth-service, or every
+    # signature check on an incoming token fails.
+    secret: ${JWT_SECRET}
+  internal-api:
+    # Must be the IDENTICAL value configured in auth-service's
+    # InternalApiKeyFilter.
+    key: ${INTERNAL_API_KEY}
+    header-name: X-Internal-Api-Key
+  auth-service:
+    base-url: ${AUTH_SERVICE_URL:http://localhost:8080}
+  wallet-service:
+    # Not called anywhere yet - garbigo-wallet-service doesn't exist. Kept
+    # here so WalletServiceClient has somewhere valid to point at (reserved
+    # port 8082 per the naming table) once it does.
+    base-url: ${WALLET_SERVICE_URL:http://localhost:8082}
+  messaging:
+    # Already exists, published by auth-service - this service becomes a
+    # second consumer of it, not the owner of the queue definition.
+    user-created-queue: user-created-queue
