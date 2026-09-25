@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** All endpoints here are client-only per the README's API table. */
 @RestController
 @RequestMapping("/schedules")
 @RequiredArgsConstructor

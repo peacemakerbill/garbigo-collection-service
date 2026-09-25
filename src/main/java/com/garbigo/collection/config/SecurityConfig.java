@@ -10,18 +10,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Security setup for this service. Unlike auth-service, this service never
- * issues tokens or handles credentials directly - it only validates JWTs
- * (see {@link JwtFilter} / {@link com.garbigo.collection.security.JwtUtil})
- * and enforces role checks via {@code @PreAuthorize} on controller methods
- * ({@code @EnableMethodSecurity} below is what makes those annotations take
- * effect).
- *
- * <p>TODO: scaffolding-level SecurityConfig, not adapted from auth-service's
- * actual one yet - port over any auth-service-specific conventions (custom
- * entry points, CORS setup, etc.) once that file is shared.
- */
 @Configuration
 @EnableMethodSecurity
 @RequiredArgsConstructor

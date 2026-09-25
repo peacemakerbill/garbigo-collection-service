@@ -21,25 +21,10 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Validates the incoming JWT (signature + expiry via {@link JwtUtil}, plus
- * revocation via the shared Redis denylist) and, if valid, authenticates the
- * request with the caller's userId as principal.
- *
- * <p>The JWT itself carries no role claim (see the auth-service integration
- * notes in the project README), so role-based {@code @PreAuthorize} checks
- * depend on a lookup into the local {@link UserSummary} cache here. That
- * cache is only as fresh as the last {@code user-created} event this
- * service consumed - if auth-service changes a user's role after account
- * creation, this service won't know until that gap is closed on
- * auth-service's side (a new event type). A request from a user not yet in
- * the cache is still authenticated, but granted no role authorities, so any
- * {@code @PreAuthorize} role check on it will deny rather than fail open.
- *
- * <p>TODO: this is a best-effort reconstruction, not auth-service's actual
- * JwtFilter - replace with the real one once shared, particularly to
- * confirm the exact 401 response shape expected by clients (this version
- * leaves that to Spring Security's default handling rather than writing a
- * custom response body).
+ * Validates the JWT and checks the shared Redis revocation denylist. The
+ * token carries no role claim, so role authorities come from the local
+ * UserSummary cache - a user not yet in that cache is authenticated but
+ * gets no roles, so @PreAuthorize checks deny rather than fail open.
  */
 @Component
 @RequiredArgsConstructor
@@ -69,14 +54,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 if (!isRevoked(jti)) {
                     authenticate(jwtUtil.extractUserId(claims));
                 }
-                // If revoked, we simply don't authenticate here - the
-                // downstream .authenticated()/@PreAuthorize checks reject
-                // the unauthenticated request rather than this filter
-                // writing the response directly.
             } catch (JwtException | IllegalArgumentException e) {
-                // Invalid/expired token - leave the SecurityContext empty
-                // and let Spring Security's normal unauthenticated handling
-                // take over.
                 SecurityContextHolder.clearContext();
             }
         }

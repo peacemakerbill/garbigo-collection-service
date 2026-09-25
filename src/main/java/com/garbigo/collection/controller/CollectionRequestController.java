@@ -22,17 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * See the project README's "API Reference (Planned)" table for the access
- * rules each endpoint maps to. Role checks below rely on
- * {@link com.garbigo.collection.security.JwtFilter} having attached a
- * ROLE_* authority to the current {@link Authentication} - see that class
- * for how (and its documented staleness caveat).
- *
- * <p>TODO: assign and updateStatus below take collectorId/status as plain
- * request params rather than a body DTO - the README notes exact shapes
- * for these two actions aren't fixed yet, so this is a starting guess.
- */
 @RestController
 @RequestMapping("/collections")
 @RequiredArgsConstructor

@@ -3,29 +3,21 @@ server:
 
 spring:
   config:
-    # Same trick as auth-service: load a local .env file (plain KEY=VALUE
-    # lines), parsed with the .properties loader via the bracket suffix.
     import: "optional:file:.env[.properties]"
 
   application:
     name: garbigo-collection-service
 
-  # MongoAutoConfiguration doesn't actually depend on Spring Data, so its
-  # connection properties live at spring.mongodb.* (not spring.data.mongodb.*)
-  # as of Spring Boot 4 - matching auth-service's own application.yml.
+  # spring.mongodb.* (not spring.data.mongodb.*) as of Spring Boot 4.
   mongodb:
     uri: ${MONGODB_URI:mongodb://localhost:27017/garbigo_collection}
 
   data:
     redis:
-      # Must be the SAME Redis instance auth-service uses - shared JWT
-      # revocation denylist (revoked:jti:* keys), not a separate cache.
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
   rabbitmq:
-    # Same broker as auth-service - this service consumes its existing
-    # user-created-queue rather than owning a separate broker.
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
@@ -43,39 +35,24 @@ spring:
           starttls:
             enable: true
 
-# --- Auth-service integration -----------------------------------------------
-# Property paths below (jwt.secret, internal.api-key, rabbitmq.queue.user-created)
-# match auth-service's own application.yml exactly, rather than living under an
-# invented "garbigo.*" umbrella - same env vars work across both services.
+# Matches auth-service's own property paths (not a garbigo.* umbrella) - same env vars work on both services.
 jwt:
-  # Must be the IDENTICAL value configured in auth-service, or every
-  # signature check on an incoming token fails.
   secret: ${JWT_SECRET}
 
 internal:
-  # Must be the IDENTICAL value configured in auth-service's
-  # InternalApiKeyFilter. The header name itself (X-Internal-Api-Key) is
-  # not configurable here - see FeignConfig.
   api-key: ${INTERNAL_API_KEY}
 
 rabbitmq:
   queue:
-    # Already exists, published by auth-service - this service becomes a
-    # second consumer of it, not the owner of the queue definition. Same
-    # property path and env var as auth-service uses on the publishing side.
     user-created: ${RABBITMQ_QUEUE_USER_CREATED:user-created-queue}
+  purge-queues-on-startup: ${PURGE_QUEUES_ON_STARTUP:false}
 
-# --- Other services this one calls -----------------------------------------
 services:
   auth:
     base-url: ${AUTH_SERVICE_URL:http://localhost:8080}
   wallet:
-    # Not called anywhere yet - garbigo-wallet-service doesn't exist. Kept
-    # here so WalletServiceClient has somewhere valid to point at (reserved
-    # port 8082 per the naming table) once it does.
     base-url: ${WALLET_SERVICE_URL:http://localhost:8082}
 
-# --- App/branding info for outgoing emails ----------------------------------
 app:
   name: ${APP_NAME:Garbigo}
   url: ${APP_URL:http://localhost:3000}

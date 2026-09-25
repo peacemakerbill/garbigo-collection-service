@@ -7,10 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Location payload embedded in create/update requests for a
- * CollectionRequest or RecurringSchedule.
- */
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,7 +20,6 @@ public class LocationRequest {
     private String address;
 
     private String landmark;
-
     private String city;
 
     @NotNull

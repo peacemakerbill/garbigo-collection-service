@@ -13,13 +13,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Business logic for {@link Complaint}.
- *
- * <p>TODO: scaffolding-level implementation - nothing here yet confirms
- * collectionRequestId actually refers to a real CollectionRequest before
- * accepting a complaint against it.
- */
 @Service
 @RequiredArgsConstructor
 public class ComplaintService {
@@ -55,10 +48,6 @@ public class ComplaintService {
         return toResponse(saved);
     }
 
-    /**
-     * Best-effort notification - a missing/stale UserSummary cache entry
-     * just means no email goes out, not a failed resolve.
-     */
     private void notifyReporterOfResolution(Complaint complaint) {
         userSummaryService.findById(complaint.getReporterId()).ifPresent(reporter ->
                 mailService.sendComplaintResolved(

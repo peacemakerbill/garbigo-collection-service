@@ -20,6 +20,13 @@
       "defaultValue": "user-created-queue"
     },
     {
+      "name": "rabbitmq.purge-queues-on-startup",
+      "type": "java.lang.Boolean",
+      "description": "Opt-in, code-only alternative to purging queues from the RabbitMQ management UI. Off by default - see QueuePurgeRunner.",
+      "sourceType": "com.garbigo.collection.config.QueuePurgeRunner",
+      "defaultValue": false
+    },
+    {
       "name": "services.auth.base-url",
       "type": "java.lang.String",
       "description": "Base URL AuthServiceClient uses to call garbigo-auth-service over Feign.",

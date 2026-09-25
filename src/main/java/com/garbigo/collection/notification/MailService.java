@@ -14,23 +14,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
-/**
- * Sends branded HTML transactional emails, rendered from the Thymeleaf
- * templates under {@code src/main/resources/templates/email/}, over the
- * shared {@code spring.mail.*} SMTP config (same properties auth-service
- * uses).
- *
- * <p>TODO: auth-service's own mail-sending code wasn't one of the shared
- * files - this is written fresh against its application.yml config, not
- * adapted from a real MailService. If auth-service already has an
- * equivalent class (e.g. for its verification/password-reset emails),
- * prefer porting that one over this so both services build and send mail
- * the same way.
- *
- * <p>A failed send is logged and swallowed rather than propagated - a
- * missing confirmation email should never fail the pickup request or
- * complaint resolution that triggered it.
- */
+/** Sends branded HTML emails from templates under resources/templates/email/. */
 @Service
 @Slf4j
 public class MailService {
@@ -66,10 +50,6 @@ public class MailService {
         this.companyAddress = companyAddress;
     }
 
-    /**
-     * Sent from {@link com.garbigo.collection.service.CollectionRequestService#create}
-     * once a pickup request is saved.
-     */
     public void sendCollectionRequestConfirmation(
             String toEmail,
             String recipientName,
@@ -89,10 +69,6 @@ public class MailService {
         send(toEmail, "Your Garbigo pickup is confirmed", "email/collection-request-confirmation", variables);
     }
 
-    /**
-     * Sent from {@link com.garbigo.collection.service.ComplaintService#resolve}
-     * once a complaint is marked RESOLVED.
-     */
     public void sendComplaintResolved(
             String toEmail,
             String recipientName,

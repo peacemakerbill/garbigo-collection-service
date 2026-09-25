@@ -10,13 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-/**
- * Body for POST /collections. clientId/collectorId/status/paymentStatus are
- * deliberately absent here - they're set by the service layer, not the
- * caller (clientId from the authenticated principal, status defaults to
- * PENDING, paymentStatus to UNPAID, collectorId assigned later via
- * PUT /collections/{id}/assign).
- */
+/** clientId/status/paymentStatus/collectorId are set by the service, not the caller. */
 @Data
 @Builder
 @NoArgsConstructor

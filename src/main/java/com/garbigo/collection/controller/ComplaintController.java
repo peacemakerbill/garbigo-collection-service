@@ -19,11 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * POST/GET-mine are open to any authenticated user (per the README's "Auth"
- * access column, with no specific role listed); resolve is restricted to
- * ADMIN/SUPPORT.
- */
 @RestController
 @RequestMapping("/complaints")
 @RequiredArgsConstructor

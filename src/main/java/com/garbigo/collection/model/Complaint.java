@@ -10,11 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 
-/**
- * An issue reported against a specific {@link CollectionRequest}.
- *
- * <p>TODO: scaffolding placeholder - no validation or indexes added yet.
- */
 @Document(collection = "complaints")
 @Data
 @Builder
@@ -26,11 +21,8 @@ public class Complaint {
     private String id;
 
     private String collectionRequestId;
-
     private String reporterId;
-
     private String description;
-
     private ComplaintStatus status;
 
     @CreatedDate

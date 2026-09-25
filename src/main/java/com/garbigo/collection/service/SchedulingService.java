@@ -14,12 +14,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Business logic for {@link RecurringSchedule}.
- *
- * <p>TODO: scaffolding-level implementation - no rule yet preventing a
- * client from creating overlapping schedules for the same day.
- */
 @Service
 @RequiredArgsConstructor
 public class SchedulingService {
