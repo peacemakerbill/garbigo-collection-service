@@ -56,11 +56,12 @@ public class CollectionRequestController {
     }
 
     @PutMapping("/{id}/assign")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS')")
+    @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<CollectionRequestResponse> assign(
+            Authentication authentication,
             @PathVariable String id,
             @RequestParam String collectorId) {
-        return ResponseEntity.ok(collectionRequestService.assign(id, collectorId));
+        return ResponseEntity.ok(collectionRequestService.assign(id, authentication.getName(), collectorId));
     }
 
     @PutMapping("/{id}/status")

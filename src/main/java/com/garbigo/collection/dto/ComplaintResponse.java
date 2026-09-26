@@ -17,6 +17,8 @@ public class ComplaintResponse {
     private String id;
     private String collectionRequestId;
     private String reporterId;
+    private String reporterName;
+    private String reporterEmail;
     private String description;
     private ComplaintStatus status;
     private Instant createdAt;
