@@ -2,6 +2,7 @@ package com.garbigo.collection.service;
 
 import com.garbigo.collection.client.AuthServiceClient;
 import com.garbigo.collection.dto.CollectorResponse;
+import com.garbigo.collection.model.UserSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,13 +17,19 @@ public class CollectorService {
     private static final String COLLECTOR_ROLE = "COLLECTOR";
 
     private final AuthServiceClient authServiceClient;
+    private final UserSummaryService userSummaryService;
 
     public List<CollectorResponse> listActiveCollectors() {
-        return authServiceClient.getAllUsers().stream()
-                .filter(user -> COLLECTOR_ROLE.equalsIgnoreCase(user.getRole()) && user.isActive())
+        List<UserSummary> users = authServiceClient.getAllUsers();
+        users.forEach(userSummaryService::upsert);
+
+        return users.stream()
+                .filter(user -> COLLECTOR_ROLE.equalsIgnoreCase(user.getRole())
+                        && user.isActive()
+                        && !user.isArchived())
                 .map(user -> CollectorResponse.builder()
                         .id(user.getId())
-                        .displayUsername(user.getDisplayUsername())
+                        .name(user.preferredName())
                         .email(user.getEmail())
                         .build())
                 .collect(Collectors.toList());

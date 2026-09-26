@@ -1,6 +1,5 @@
 package com.garbigo.collection.service;
 
-import com.garbigo.collection.client.AuthServiceClient;
 import com.garbigo.collection.dto.CollectionRequestCreateRequest;
 import com.garbigo.collection.dto.CollectionRequestResponse;
 import com.garbigo.collection.dto.LocationRequest;
@@ -13,7 +12,6 @@ import com.garbigo.collection.model.PaymentStatus;
 import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.CollectionRequestRepository;
-import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +31,6 @@ public class CollectionRequestService {
 
     private final CollectionRequestRepository collectionRequestRepository;
     private final UserSummaryService userSummaryService;
-    private final AuthServiceClient authServiceClient;
     private final MailService mailService;
 
     public CollectionRequestResponse create(String clientId, CollectionRequestCreateRequest request) {
@@ -70,10 +67,11 @@ public class CollectionRequestService {
 
     /**
      * Client-driven: the requesting client picks their own collector (see
-     * GET /collectors), rather than an admin dispatching one. Validates
-     * collectorId is both owned by this client's request and an actual
-     * COLLECTOR - a connectivity failure here (feign.RetryableException)
-     * propagates to GlobalExceptionHandler's friendly 503.
+     * GET /collectors). userSummaryService.resolve() falls back to a live
+     * auth-service directory refresh on a cache miss - if auth-service is
+     * unreachable, that propagates as feign.RetryableException up to
+     * GlobalExceptionHandler's 503, since a working assignment genuinely
+     * depends on confirming the collector exists.
      */
     public CollectionRequestResponse assign(String id, String clientId, String collectorId) {
         CollectionRequest existing = findOrThrow(id);
@@ -81,17 +79,11 @@ public class CollectionRequestService {
             throw new CustomException("Only the requesting client can assign a collector to this request");
         }
 
-        UserSummary collector;
-        try {
-            collector = authServiceClient.getUserById(collectorId);
-        } catch (FeignException.NotFound e) {
-            throw new CustomException("No such collector: " + collectorId);
-        }
-        if (collector == null || !COLLECTOR_ROLE.equalsIgnoreCase(collector.getRole())) {
-            throw new CustomException("The selected user is not a collector: " + collectorId);
-        }
+        UserSummary collector = userSummaryService.resolve(collectorId)
+                .filter(user -> COLLECTOR_ROLE.equalsIgnoreCase(user.getRole()))
+                .orElseThrow(() -> new CustomException("The selected user is not a collector: " + collectorId));
 
-        existing.setCollectorId(collectorId);
+        existing.setCollectorId(collector.getId());
         existing.setStatus(CollectionStatus.ASSIGNED);
         return toResponse(collectionRequestRepository.save(existing));
     }
@@ -132,7 +124,7 @@ public class CollectionRequestService {
 
             mailService.sendCollectionRequestConfirmation(
                     client.getEmail(),
-                    client.getDisplayUsername(),
+                    client.preferredName(),
                     request.getId(),
                     request.getWasteType().name(),
                     scheduledAt,

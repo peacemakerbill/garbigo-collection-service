@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 public class CollectorResponse {
 
     private String id;
-    private String displayUsername;
+    private String name;
     private String email;
 }

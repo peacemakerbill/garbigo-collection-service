@@ -1,6 +1,5 @@
 package com.garbigo.collection.service;
 
-import com.garbigo.collection.client.AuthServiceClient;
 import com.garbigo.collection.dto.ComplaintCreateRequest;
 import com.garbigo.collection.dto.ComplaintResponse;
 import com.garbigo.collection.exception.CustomException;
@@ -24,7 +23,6 @@ public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
     private final UserSummaryService userSummaryService;
-    private final AuthServiceClient authServiceClient;
     private final MailService mailService;
 
     public ComplaintResponse create(String reporterId, ComplaintCreateRequest request) {
@@ -58,7 +56,7 @@ public class ComplaintService {
         userSummaryService.findById(complaint.getReporterId()).ifPresent(reporter ->
                 mailService.sendComplaintResolved(
                         reporter.getEmail(),
-                        reporter.getDisplayUsername(),
+                        reporter.preferredName(),
                         complaint.getId(),
                         complaint.getDescription()
                 )
@@ -72,7 +70,7 @@ public class ComplaintService {
                 .id(entity.getId())
                 .collectionRequestId(entity.getCollectionRequestId())
                 .reporterId(entity.getReporterId())
-                .reporterName(reporter == null ? null : reporter.getDisplayUsername())
+                .reporterName(reporter == null ? null : reporter.preferredName())
                 .reporterEmail(reporter == null ? null : reporter.getEmail())
                 .description(entity.getDescription())
                 .status(entity.getStatus())
@@ -81,25 +79,14 @@ public class ComplaintService {
     }
 
     /**
-     * Cache first; on a miss, falls back to a live auth-service call and
-     * caches the result. Supplementary data, not core to the complaint
-     * itself, so an unreachable auth-service degrades to null names here
-     * rather than failing the whole request (contrast with
-     * CollectionRequestService.assign, where auth-service being reachable
-     * actually matters and a failure propagates as a 503 instead).
+     * Supplementary data, not core to the complaint itself - an unreachable
+     * auth-service degrades to null names here rather than failing the
+     * whole request (contrast with CollectionRequestService.assign, where
+     * a connectivity failure propagates as a 503 instead).
      */
     private UserSummary resolveReporterSummary(String reporterId) {
-        return userSummaryService.findById(reporterId)
-                .orElseGet(() -> fetchAndCacheFromAuthService(reporterId));
-    }
-
-    private UserSummary fetchAndCacheFromAuthService(String reporterId) {
         try {
-            UserSummary fetched = authServiceClient.getUserById(reporterId);
-            if (fetched != null) {
-                userSummaryService.upsert(fetched);
-            }
-            return fetched;
+            return userSummaryService.resolve(reporterId).orElse(null);
         } catch (RetryableException e) {
             log.warn("auth-service unreachable while enriching complaint reporter {}: {}", reporterId, e.getMessage());
             return null;

@@ -9,10 +9,10 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
  * Read-only mirror of an auth-service user, kept current by
- * {@link com.garbigo.collection.messaging.UserCreatedEventListener}. Not
- * the source of truth for identity. {@code id} is auth-service's own user
- * id. {@code role} stays a plain String until auth-service's role shape is
- * confirmed.
+ * UserCreatedEventListener and UserSummaryService's directory-refresh
+ * fallback. Deliberately only carries what this service actually uses -
+ * auth-service's real user also has phoneNumber/homeAddress/followers/
+ * reviews/etc., which just get silently dropped here rather than mapped.
  */
 @Document(collection = "user_summaries")
 @Data
@@ -24,8 +24,15 @@ public class UserSummary {
     @Id
     private String id;
 
+    private String username;
+    private String firstName;
     private String email;
-    private String displayUsername;
     private String role;
     private boolean active;
+    private boolean archived;
+
+    /** First name if we have it, falling back to username - for greetings/display. */
+    public String preferredName() {
+        return (firstName != null && !firstName.isBlank()) ? firstName : username;
+    }
 }
