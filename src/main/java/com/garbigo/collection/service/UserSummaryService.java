@@ -44,4 +44,9 @@ public class UserSummaryService {
     public void refreshFromAuthService() {
         userSummaryRepository.saveAll(authServiceClient.getAllUsers());
     }
+
+    /** Count from the local cache, not a live auth-service call - used by AdminStatsService. */
+    public long countCachedCollectors() {
+        return userSummaryRepository.countByRoleIgnoreCase("COLLECTOR");
+    }
 }

@@ -27,6 +27,7 @@ public class CollectionRequestResponse {
     private LocationResponse location;
     private String notes;
     private BigDecimal quotedPrice;
+    private String cancellationReason;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -5,6 +5,9 @@ import com.garbigo.collection.dto.ComplaintResponse;
 import com.garbigo.collection.service.ComplaintService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,10 +20,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
+/**
+ * POST/GET-mine are open to any authenticated user; resolve is restricted
+ * to ADMIN/SUPPORT.
+ */
 @RestController
-@RequestMapping("/complaints")
+@RequestMapping("/api/v1/complaints")
 @RequiredArgsConstructor
 public class ComplaintController {
 
@@ -35,8 +40,9 @@ public class ComplaintController {
     }
 
     @GetMapping("/mine")
-    public ResponseEntity<List<ComplaintResponse>> getMine(Authentication authentication) {
-        return ResponseEntity.ok(complaintService.getMine(authentication.getName()));
+    public ResponseEntity<Page<ComplaintResponse>> getMine(
+            Authentication authentication, @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(complaintService.getMine(authentication.getName(), pageable));
     }
 
     @PutMapping("/{id}/resolve")

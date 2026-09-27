@@ -31,6 +31,7 @@ public class CollectionRequest {
     private Location location;
     private String notes;
     private BigDecimal quotedPrice;
+    private String cancellationReason;
 
     @CreatedDate
     private Instant createdAt;

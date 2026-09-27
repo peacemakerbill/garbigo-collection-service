@@ -11,10 +11,9 @@ import com.garbigo.collection.repository.ComplaintRepository;
 import feign.RetryableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +29,7 @@ public class ComplaintService {
                 Complaint.builder()
                         .collectionRequestId(request.getCollectionRequestId())
                         .reporterId(reporterId)
+                        .category(request.getCategory())
                         .description(request.getDescription())
                         .status(ComplaintStatus.OPEN)
                         .build()
@@ -37,10 +37,9 @@ public class ComplaintService {
         return toResponse(saved);
     }
 
-    public List<ComplaintResponse> getMine(String reporterId) {
-        return complaintRepository.findByReporterId(reporterId).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<ComplaintResponse> getMine(String reporterId, Pageable pageable) {
+        return complaintRepository.findByReporterId(reporterId, pageable)
+                .map(this::toResponse);
     }
 
     public ComplaintResponse resolve(String id) {
@@ -72,6 +71,7 @@ public class ComplaintService {
                 .reporterId(entity.getReporterId())
                 .reporterName(reporter == null ? null : reporter.preferredName())
                 .reporterEmail(reporter == null ? null : reporter.getEmail())
+                .category(entity.getCategory())
                 .description(entity.getDescription())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())

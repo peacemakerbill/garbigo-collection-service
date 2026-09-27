@@ -14,4 +14,6 @@ public class CollectorResponse {
     private String id;
     private String name;
     private String email;
+    private Double averageRating;
+    private long ratingCount;
 }

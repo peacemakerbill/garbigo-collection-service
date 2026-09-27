@@ -74,6 +74,20 @@
       "description": "Company address shown in the footer of outgoing HTML emails.",
       "sourceType": "com.garbigo.collection.notification.MailService",
       "defaultValue": "Nairobi, Kenya"
+    },
+    {
+      "name": "collections.cancellation-cutoff-hours",
+      "type": "java.lang.Long",
+      "description": "How close to scheduledAt a client can still cancel a collection or sewage request without it being blocked.",
+      "sourceType": "com.garbigo.collection.service.CollectionRequestService",
+      "defaultValue": 2
+    },
+    {
+      "name": "rate-limit.requests-per-minute",
+      "type": "java.lang.Integer",
+      "description": "Requests per client IP per minute before RateLimitFilter returns 429. Same property name/style as auth-service's own rate-limit.requests-per-minute.",
+      "sourceType": "com.garbigo.collection.security.RateLimitFilter",
+      "defaultValue": 60
     }
   ]
 }

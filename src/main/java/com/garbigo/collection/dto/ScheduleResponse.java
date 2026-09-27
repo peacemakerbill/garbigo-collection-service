@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.List;
 
 @Data
@@ -20,6 +21,7 @@ public class ScheduleResponse {
     private String clientId;
     private ScheduleFrequency frequency;
     private DayOfWeek dayOfWeek;
+    private LocalTime preferredTime;
     private List<WasteType> wasteTypes;
     private LocationResponse location;
     private boolean active;

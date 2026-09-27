@@ -35,6 +35,13 @@ spring:
           starttls:
             enable: true
 
+# Only /actuator/health is exposed - not the full actuator surface.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 # Matches auth-service's own property paths (not a garbigo.* umbrella) - same env vars work on both services.
 jwt:
   secret: ${JWT_SECRET}
@@ -60,3 +67,18 @@ app:
   company:
     name: ${COMPANY_NAME:Garbigo Ltd}
     address: ${COMPANY_ADDRESS:Nairobi, Kenya}
+
+collections:
+  # How close to scheduledAt a client can still cancel without it being blocked.
+  cancellation-cutoff-hours: ${CANCELLATION_CUTOFF_HOURS:2}
+
+# Same style/name as auth-service's own rate-limit.requests-per-minute.
+# Backed by Redis (RateLimitFilter) so it's correct across multiple instances.
+rate-limit:
+  requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:60}
+
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /api-docs

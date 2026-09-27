@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/schedules")
+@RequestMapping("/api/v1/schedules")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CLIENT')")
 public class ScheduleController {

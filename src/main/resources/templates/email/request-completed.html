@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Request Completed</title>
+</head>
+<body style="margin:0;padding:0;background-color:#eef1f0;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef1f0;">
+    <tr>
+        <td align="center" style="padding:32px 16px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+                   style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);max-width:560px;width:100%;">
+
+                <tr>
+                    <td th:insert="~{email/fragments/layout :: header}"></td>
+                </tr>
+
+                <tr>
+                    <td style="padding:32px;">
+                        <h1 style="font-size:20px;color:#1b4332;margin:0 0 8px;">All done!</h1>
+                        <p style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 20px;">
+                            Hi <span th:text="${recipientName}">there</span>, your
+                            <span th:text="${serviceType}">Garbage pickup</span> request
+                            (<span th:text="${requestId}">REQ-123</span>) has been marked complete. Thanks for
+                            using Garbigo.
+                        </p>
+
+                        <p th:if="${showRatingPrompt}" style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 20px;">
+                            Got a minute? Rating your collector helps other clients pick a good one.
+                        </p>
+
+                        <p style="text-align:center;margin:0;">
+                            <a th:href="${appUrl}"
+                               style="display:inline-block;background-color:#2d6a4f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;">
+                                <span th:text="${showRatingPrompt} ? 'Rate your collector' : 'View in Garbigo'">View in Garbigo</span>
+                            </a>
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td th:insert="~{email/fragments/layout :: footer}"></td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

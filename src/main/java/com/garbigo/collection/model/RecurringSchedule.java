@@ -8,6 +8,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.DayOfWeek;
+import java.time.Instant;
+import java.time.LocalTime;
 import java.util.List;
 
 @Document(collection = "recurring_schedules")
@@ -23,7 +25,14 @@ public class RecurringSchedule {
     private String clientId;
     private ScheduleFrequency frequency;
     private DayOfWeek dayOfWeek;
+
+    /** Time of day requests get generated for; defaults to 09:00 if not set. */
+    private LocalTime preferredTime;
+
     private List<WasteType> wasteTypes;
     private Location location;
     private boolean active;
+
+    /** Set by RecurringScheduleRunner - when a request was last auto-generated from this schedule. */
+    private Instant lastGeneratedAt;
 }

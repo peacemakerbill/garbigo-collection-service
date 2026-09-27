@@ -1,5 +1,6 @@
 package com.garbigo.collection.dto;
 
+import com.garbigo.collection.model.ComplaintCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,9 @@ public class ComplaintCreateRequest {
 
     @NotNull
     private String collectionRequestId;
+
+    @NotNull
+    private ComplaintCategory category;
 
     @NotBlank
     private String description;

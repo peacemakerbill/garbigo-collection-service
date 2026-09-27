@@ -22,6 +22,7 @@ public class Complaint {
 
     private String collectionRequestId;
     private String reporterId;
+    private ComplaintCategory category;
     private String description;
     private ComplaintStatus status;
 

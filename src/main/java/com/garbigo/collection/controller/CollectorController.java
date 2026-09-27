@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/collectors")
+@RequestMapping("/api/v1/collectors")
 @RequiredArgsConstructor
 public class CollectorController {
 

@@ -10,4 +10,7 @@ public interface RecurringScheduleRepository extends MongoRepository<RecurringSc
     List<RecurringSchedule> findByClientId(String clientId);
 
     List<RecurringSchedule> findByClientIdAndActiveTrue(String clientId);
+
+    /** Used by RecurringScheduleRunner - all schedules it needs to evaluate each run. */
+    List<RecurringSchedule> findByActiveTrue();
 }

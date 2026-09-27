@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.List;
 
 @Data
@@ -24,6 +25,9 @@ public class ScheduleCreateRequest {
 
     @NotNull
     private DayOfWeek dayOfWeek;
+
+    /** Defaults to 09:00 if omitted. */
+    private LocalTime preferredTime;
 
     @NotEmpty
     private List<WasteType> wasteTypes;

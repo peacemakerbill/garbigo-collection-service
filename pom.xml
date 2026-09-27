@@ -40,6 +40,12 @@
           shared.
         -->
         <jjwt.version>0.12.6</jjwt.version>
+        <!--
+          Spring Boot 4-compatible line (3.x here refers to springdoc's own
+          major version, not Spring Boot's) - re-check for a newer patch
+          when bumping the Boot parent version.
+        -->
+        <springdoc.version>3.0.3</springdoc.version>
     </properties>
 
     <dependencyManagement>
@@ -116,6 +122,19 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- /actuator/health for uptime monitoring / container liveness checks -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- OpenAPI/Swagger UI, auto-generated from the controllers/DTOs -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
 
         <!--

@@ -1,22 +1,23 @@
 package com.garbigo.collection.service;
 
-import com.garbigo.collection.dto.LocationRequest;
-import com.garbigo.collection.dto.LocationResponse;
 import com.garbigo.collection.dto.ScheduleCreateRequest;
 import com.garbigo.collection.dto.ScheduleResponse;
 import com.garbigo.collection.exception.CustomException;
-import com.garbigo.collection.model.Location;
 import com.garbigo.collection.model.RecurringSchedule;
 import com.garbigo.collection.repository.RecurringScheduleRepository;
+import com.garbigo.collection.util.LocationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SchedulingService {
+
+    private static final LocalTime DEFAULT_PREFERRED_TIME = LocalTime.of(9, 0);
 
     private final RecurringScheduleRepository recurringScheduleRepository;
 
@@ -26,8 +27,9 @@ public class SchedulingService {
                         .clientId(clientId)
                         .frequency(request.getFrequency())
                         .dayOfWeek(request.getDayOfWeek())
+                        .preferredTime(request.getPreferredTime() == null ? DEFAULT_PREFERRED_TIME : request.getPreferredTime())
                         .wasteTypes(request.getWasteTypes())
-                        .location(toLocation(request.getLocation()))
+                        .location(LocationMapper.toLocation(request.getLocation()))
                         .active(true)
                         .build()
         );
@@ -44,8 +46,9 @@ public class SchedulingService {
         RecurringSchedule existing = findOwnedByOrThrow(id, clientId);
         existing.setFrequency(request.getFrequency());
         existing.setDayOfWeek(request.getDayOfWeek());
+        existing.setPreferredTime(request.getPreferredTime() == null ? DEFAULT_PREFERRED_TIME : request.getPreferredTime());
         existing.setWasteTypes(request.getWasteTypes());
-        existing.setLocation(toLocation(request.getLocation()));
+        existing.setLocation(LocationMapper.toLocation(request.getLocation()));
         return toResponse(recurringScheduleRepository.save(existing));
     }
 
@@ -63,39 +66,15 @@ public class SchedulingService {
         return existing;
     }
 
-    private Location toLocation(LocationRequest request) {
-        return Location.builder()
-                .locationName(request.getLocationName())
-                .address(request.getAddress())
-                .landmark(request.getLandmark())
-                .city(request.getCity())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .build();
-    }
-
-    private LocationResponse toLocationResponse(Location location) {
-        if (location == null) {
-            return null;
-        }
-        return LocationResponse.builder()
-                .locationName(location.getLocationName())
-                .address(location.getAddress())
-                .landmark(location.getLandmark())
-                .city(location.getCity())
-                .latitude(location.getLatitude())
-                .longitude(location.getLongitude())
-                .build();
-    }
-
     private ScheduleResponse toResponse(RecurringSchedule entity) {
         return ScheduleResponse.builder()
                 .id(entity.getId())
                 .clientId(entity.getClientId())
                 .frequency(entity.getFrequency())
                 .dayOfWeek(entity.getDayOfWeek())
+                .preferredTime(entity.getPreferredTime())
                 .wasteTypes(entity.getWasteTypes())
-                .location(toLocationResponse(entity.getLocation()))
+                .location(LocationMapper.toResponse(entity.getLocation()))
                 .active(entity.isActive())
                 .build();
     }
