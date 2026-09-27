@@ -7,6 +7,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 /**
  * Read-only mirror of an auth-service user, kept current by
  * UserCreatedEventListener and UserSummaryService's directory-refresh
@@ -26,13 +29,18 @@ public class UserSummary {
 
     private String username;
     private String firstName;
+    private String middleName;
+    private String lastName;
     private String email;
     private String role;
     private boolean active;
     private boolean archived;
 
-    /** First name if we have it, falling back to username - for greetings/display. */
+    /** Full name from whichever name parts are present, falling back to username if none are. */
     public String preferredName() {
-        return (firstName != null && !firstName.isBlank()) ? firstName : username;
+        String fullName = Stream.of(firstName, middleName, lastName)
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(" "));
+        return fullName.isBlank() ? username : fullName;
     }
 }
