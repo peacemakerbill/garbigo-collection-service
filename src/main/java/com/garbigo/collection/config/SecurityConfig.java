@@ -60,7 +60,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/docs/**", "/api-docs/**", "/swagger-ui/**").permitAll()
-                        .requestMatchers("/api/v1/quotes/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

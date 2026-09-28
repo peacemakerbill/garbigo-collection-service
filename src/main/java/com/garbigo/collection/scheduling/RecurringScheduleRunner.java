@@ -22,7 +22,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.stream.Collectors;
 
 /**
- * Runs daily at 06:00 UTC. For each active RecurringSchedule: generates a
+ * Runs on scheduling.recurring-requests.cron (default: daily at 06:00 UTC).
+ * For each active RecurringSchedule: generates a
  * CollectionRequest per waste type if today is due, or sends a reminder
  * email if tomorrow is due. "Due" uses a day-count threshold per frequency
  * rather than real calendar semantics for BIWEEKLY/MONTHLY - an
@@ -42,7 +43,7 @@ public class RecurringScheduleRunner {
     private final UserSummaryService userSummaryService;
     private final MailService mailService;
 
-    @Scheduled(cron = "0 0 6 * * *")
+    @Scheduled(cron = "${scheduling.recurring-requests.cron}", zone = "UTC")
     public void run() {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate tomorrow = today.plusDays(1);
@@ -61,7 +62,7 @@ public class RecurringScheduleRunner {
         }
     }
 
-    boolean isDueOn(RecurringSchedule schedule, LocalDate date) {
+    private boolean isDueOn(RecurringSchedule schedule, LocalDate date) {
         boolean dayMatches = schedule.getFrequency() == ScheduleFrequency.DAILY
                 || schedule.getDayOfWeek() == date.getDayOfWeek();
         if (!dayMatches) {

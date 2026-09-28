@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -54,6 +55,7 @@ public class SewageRequestService {
                         .scheduledAt(request.getScheduledAt())
                         .location(resolveLocation(clientId, request.getSavedLocationId(), request.getLocation()))
                         .notes(request.getNotes())
+                        .quotedPrice(request.getQuotedPrice())
                         .build()
         );
         notifyClientOfConfirmation(saved);
@@ -100,6 +102,22 @@ public class SewageRequestService {
             notifyCompletion(saved);
         }
         return toResponse(saved);
+    }
+
+    /** Lets the assigned collector set or adjust the price - the other side of the client's optional quotedPrice at booking time. */
+    public SewageRequestResponse updateQuote(String id, String collectorId, BigDecimal quotedPrice) {
+        if (quotedPrice.signum() <= 0) {
+            throw new CustomException("Price must be greater than zero");
+        }
+        SewageRequest existing = findOrThrow(id);
+        if (!collectorId.equals(existing.getCollectorId())) {
+            throw new CustomException("Only the assigned collector can set the price for this request");
+        }
+        if (existing.getStatus() == CollectionStatus.COMPLETED || existing.getStatus() == CollectionStatus.CANCELLED) {
+            throw new CustomException("Cannot update the price on a request that's already " + existing.getStatus());
+        }
+        existing.setQuotedPrice(quotedPrice);
+        return toResponse(sewageRequestRepository.save(existing));
     }
 
     public void cancel(String id, String clientId, String reason) {

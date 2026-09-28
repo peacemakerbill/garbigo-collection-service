@@ -9,8 +9,9 @@ import org.springframework.stereotype.Component;
 /**
  * Closes the staleness gap UserSummary's class docs flag: without this, a
  * role/active/archived change on an already-cached user is only ever seen
- * again on a cache miss. Runs hourly; a failure here (auth-service down)
- * just means this hour's refresh is skipped, not a startup/runtime error.
+ * again on a cache miss. Runs on scheduling.user-directory-sync.cron (default:
+ * hourly); a failure here (auth-service down) just means that run is skipped,
+ * not a startup/runtime error.
  */
 @Component
 @RequiredArgsConstructor
@@ -19,12 +20,12 @@ public class UserDirectorySyncRunner {
 
     private final UserSummaryService userSummaryService;
 
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "${scheduling.user-directory-sync.cron}", zone = "UTC")
     public void run() {
         try {
             userSummaryService.refreshFromAuthService();
         } catch (Exception e) {
-            log.warn("Hourly user directory sync failed, will retry next hour: {}", e.getMessage());
+            log.warn("User directory sync failed, will retry on the next run: {}", e.getMessage());
         }
     }
 }

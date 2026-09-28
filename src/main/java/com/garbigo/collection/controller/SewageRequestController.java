@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
+
 @RestController
 @RequestMapping("/api/v1/sewage-requests")
 @RequiredArgsConstructor
@@ -74,6 +76,15 @@ public class SewageRequestController {
             @PathVariable String id,
             @RequestParam CollectionStatus status) {
         return ResponseEntity.ok(sewageRequestService.updateStatus(id, authentication.getName(), status));
+    }
+
+    @PutMapping("/{id}/quote")
+    @PreAuthorize("hasRole('COLLECTOR')")
+    public ResponseEntity<SewageRequestResponse> updateQuote(
+            Authentication authentication,
+            @PathVariable String id,
+            @RequestParam BigDecimal quotedPrice) {
+        return ResponseEntity.ok(sewageRequestService.updateQuote(id, authentication.getName(), quotedPrice));
     }
 
     @DeleteMapping("/{id}")

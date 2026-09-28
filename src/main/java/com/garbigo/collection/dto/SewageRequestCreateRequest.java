@@ -10,8 +10,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
+/**
+ * quotedPrice here is what the client is proposing to pay - optional, and
+ * not the only way a price gets set: the assigned collector can also set or
+ * adjust it later via PUT /{id}/quote.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -36,4 +42,7 @@ public class SewageRequestCreateRequest {
 
     private String accessNotes;
     private String notes;
+
+    @Positive
+    private BigDecimal quotedPrice;
 }

@@ -22,6 +22,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -58,6 +59,7 @@ public class CollectionRequestService {
                         .scheduledAt(request.getScheduledAt())
                         .location(resolveLocation(clientId, request.getSavedLocationId(), request.getLocation()))
                         .notes(request.getNotes())
+                        .quotedPrice(request.getQuotedPrice())
                         .build()
         );
         notifyClientOfConfirmation(saved);
@@ -142,6 +144,22 @@ public class CollectionRequestService {
             notifyCompletion(saved);
         }
         return toResponse(saved);
+    }
+
+    /** Lets the assigned collector set or adjust the price - the other side of the client's optional quotedPrice at booking time. */
+    public CollectionRequestResponse updateQuote(String id, String collectorId, BigDecimal quotedPrice) {
+        if (quotedPrice.signum() <= 0) {
+            throw new CustomException("Price must be greater than zero");
+        }
+        CollectionRequest existing = findOrThrow(id);
+        if (!collectorId.equals(existing.getCollectorId())) {
+            throw new CustomException("Only the assigned collector can set the price for this request");
+        }
+        if (existing.getStatus() == CollectionStatus.COMPLETED || existing.getStatus() == CollectionStatus.CANCELLED) {
+            throw new CustomException("Cannot update the price on a request that's already " + existing.getStatus());
+        }
+        existing.setQuotedPrice(quotedPrice);
+        return toResponse(collectionRequestRepository.save(existing));
     }
 
     /** Blocked once a collector is actively on the job, or too close to scheduledAt - see collections.cancellation-cutoff-hours. */
