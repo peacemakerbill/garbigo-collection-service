@@ -2,13 +2,12 @@ package com.garbigo.collection.service;
 
 import com.garbigo.collection.client.AuthServiceClient;
 import com.garbigo.collection.dto.CollectorResponse;
-import com.garbigo.collection.dto.LiveLocationResponse;
 import com.garbigo.collection.model.Rating;
 import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.repository.RatingRepository;
-import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Comparator;
 import java.util.List;
@@ -38,34 +37,28 @@ public class CollectorService {
     }
 
     /**
-     * Same active-collector set as listActiveCollectors(), but sorted by
-     * distance from the given point and limited to radiusKm - requires
-     * fetching each collector's current position from auth-service
-     * individually (GET /users/live-location/{id}), since there's no bulk
-     * live-location endpoint the way /internal/users covers the directory.
-     * That means one Feign call per collector - fine for a modest collector
-     * count, but doesn't scale gracefully with a large one. A collector
-     * with no live location on file (FeignException.NotFound) is just
-     * excluded, not treated as an error - auth-service being unreachable
-     * entirely (feign.RetryableException) still propagates as the usual
-     * 503, since that's a real failure rather than "this one has no data."
+     * Same active-collector set as listActiveCollectors(), sorted by
+     * distance and limited to radiusKm. auth-service's live-location
+     * endpoint only accepts a real user's JWT (no internal-key path
+     * exists), so this forwards the calling client's own bearer token -
+     * one Feign call per collector, since there's no bulk live-location
+     * endpoint. A collector with no active location (never shared one, or
+     * their 2-hour TTL silently expired - the two are indistinguishable
+     * from this response) is just excluded, not treated as an error.
      */
-    public List<CollectorResponse> listNearbyCollectors(double latitude, double longitude, double radiusKm) {
+    public List<CollectorResponse> listNearbyCollectors(String authorization, double latitude, double longitude, double radiusKm) {
         List<UserSummary> collectors = activeCollectors();
         Map<String, List<Rating>> ratingsByCollector = ratingsByCollector(collectors);
 
         return collectors.stream()
                 .map(user -> {
-                    LiveLocationResponse location;
-                    try {
-                        location = authServiceClient.getLiveLocation(user.getId());
-                    } catch (FeignException.NotFound e) {
+                    JsonNode location = authServiceClient.getLiveLocation(user.getId(), authorization);
+                    if (location == null || !location.path("active").asBoolean(false)) {
                         return null;
                     }
-                    if (location == null || location.getLatitude() == null || location.getLongitude() == null) {
-                        return null;
-                    }
-                    double distanceKm = haversineKm(latitude, longitude, location.getLatitude(), location.getLongitude());
+                    double collectorLat = location.get("latitude").asDouble();
+                    double collectorLng = location.get("longitude").asDouble();
+                    double distanceKm = haversineKm(latitude, longitude, collectorLat, collectorLng);
                     if (distanceKm > radiusKm) {
                         return null;
                     }
