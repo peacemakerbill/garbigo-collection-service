@@ -108,7 +108,13 @@
       "type": "java.lang.String",
       "description": "Currency code passed to wallet-service on payment requests - WalletServiceClient's contract is speculative, wallet-service isn't designed yet.",
       "sourceType": "com.garbigo.collection.service.CollectionRequestService",
-      "defaultValue": "KES"
+      "defaultValue": "USD"
+    },
+    {
+      "name": "logging.level.org.springdoc.core.events.SpringDocAppInitializer",
+      "type": "org.springframework.boot.logging.LogLevel",
+      "description": "Suppresses SpringDoc's startup notice that /docs and /api-docs are reachable by default - doesn't disable the docs themselves (springdoc.swagger-ui.enabled / springdoc.api-docs.enabled do that), just quiets that one log line. Set to a more verbose level (e.g. INFO) to see it again.",
+      "defaultValue": "ERROR"
     }
   ]
 }

@@ -64,7 +64,7 @@ services:
 # yet. This currency is just what CollectionRequestService/SewageRequestService
 # pass along with a payment request.
 payments:
-  currency: ${PAYMENTS_CURRENCY:KES}
+  currency: ${PAYMENTS_CURRENCY:USD}
 
 app:
   name: ${APP_NAME:Garbigo}
