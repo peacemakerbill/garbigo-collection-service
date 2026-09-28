@@ -1,7 +1,10 @@
 package com.garbigo.collection.service;
 
+import com.garbigo.collection.client.WalletServiceClient;
 import com.garbigo.collection.dto.CollectionRequestCreateRequest;
 import com.garbigo.collection.dto.CollectionRequestResponse;
+import com.garbigo.collection.dto.WalletPaymentRequest;
+import com.garbigo.collection.dto.WalletPaymentResult;
 import com.garbigo.collection.exception.CustomException;
 import com.garbigo.collection.model.CollectionRequest;
 import com.garbigo.collection.model.CollectionStatus;
@@ -45,9 +48,13 @@ public class CollectionRequestService {
     private final SavedLocationService savedLocationService;
     private final MailService mailService;
     private final MongoTemplate mongoTemplate;
+    private final WalletServiceClient walletServiceClient;
 
     @Value("${collections.cancellation-cutoff-hours}")
     private long cancellationCutoffHours;
+
+    @Value("${payments.currency}")
+    private String paymentsCurrency;
 
     public CollectionRequestResponse create(String clientId, CollectionRequestCreateRequest request) {
         CollectionRequest saved = collectionRequestRepository.save(
@@ -110,16 +117,20 @@ public class CollectionRequestService {
 
     /**
      * Client-driven: the requesting client picks their own collector (see
-     * GET /collectors). userSummaryService.resolve() falls back to a live
-     * auth-service directory refresh on a cache miss - if auth-service is
-     * unreachable, that propagates as feign.RetryableException up to
-     * GlobalExceptionHandler's 503, since a working assignment genuinely
-     * depends on confirming the collector exists.
+     * GET /collectors or /collectors/nearby). Allowed while PENDING (first
+     * offer) or ASSIGNED (client changes their mind, or re-offers after a
+     * decline) - blocked once work has actually started or the request is
+     * otherwise terminal. Sets status to ASSIGNED, not an immediate
+     * acceptance - the collector still has to accept (advance status via
+     * PUT /status) or decline (PUT /decline).
      */
     public CollectionRequestResponse assign(String id, String clientId, String collectorId) {
         CollectionRequest existing = findOrThrow(id);
         if (!clientId.equals(existing.getClientId())) {
             throw new CustomException("Only the requesting client can assign a collector to this request");
+        }
+        if (existing.getStatus() != CollectionStatus.PENDING && existing.getStatus() != CollectionStatus.ASSIGNED) {
+            throw new CustomException("Can only assign a collector while the request is PENDING or ASSIGNED (current: " + existing.getStatus() + ")");
         }
 
         UserSummary collector = userSummaryService.resolve(collectorId)
@@ -128,8 +139,35 @@ public class CollectionRequestService {
 
         existing.setCollectorId(collector.getId());
         existing.setStatus(CollectionStatus.ASSIGNED);
+        existing.setLastDeclineReason(null);
         CollectionRequest saved = collectionRequestRepository.save(existing);
         notifyAssignment(saved, collector);
+        return toResponse(saved);
+    }
+
+    /**
+     * Collector declines an offered assignment (e.g. the price is too low) -
+     * reverts to PENDING and clears collectorId, so the client can raise
+     * quotedPrice (updateQuote) and re-assign, to the same or a different
+     * collector, without creating a new request. Only valid while status is
+     * ASSIGNED (i.e. before the collector has started); once IN_PROGRESS,
+     * backing out is a cancellation decision for the client, not this.
+     */
+    public CollectionRequestResponse decline(String id, String collectorId, String reason) {
+        CollectionRequest existing = findOrThrow(id);
+        if (!collectorId.equals(existing.getCollectorId())) {
+            throw new CustomException("Only the assigned collector can decline this request");
+        }
+        if (existing.getStatus() != CollectionStatus.ASSIGNED) {
+            throw new CustomException("Can only decline a request that's awaiting acceptance (current: " + existing.getStatus() + ")");
+        }
+
+        UserSummary collector = userSummaryService.findById(collectorId).orElse(null);
+        existing.setCollectorId(null);
+        existing.setStatus(CollectionStatus.PENDING);
+        existing.setLastDeclineReason(reason);
+        CollectionRequest saved = collectionRequestRepository.save(existing);
+        notifyDecline(saved, collector, reason);
         return toResponse(saved);
     }
 
@@ -146,19 +184,63 @@ public class CollectionRequestService {
         return toResponse(saved);
     }
 
-    /** Lets the assigned collector set or adjust the price - the other side of the client's optional quotedPrice at booking time. */
-    public CollectionRequestResponse updateQuote(String id, String collectorId, BigDecimal quotedPrice) {
+    /** Client-controlled - a collector who thinks the price is too low uses decline(), not this. */
+    public CollectionRequestResponse updateQuote(String id, String clientId, BigDecimal quotedPrice) {
         if (quotedPrice.signum() <= 0) {
             throw new CustomException("Price must be greater than zero");
         }
         CollectionRequest existing = findOrThrow(id);
-        if (!collectorId.equals(existing.getCollectorId())) {
-            throw new CustomException("Only the assigned collector can set the price for this request");
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can set the price for this request");
         }
         if (existing.getStatus() == CollectionStatus.COMPLETED || existing.getStatus() == CollectionStatus.CANCELLED) {
             throw new CustomException("Cannot update the price on a request that's already " + existing.getStatus());
         }
         existing.setQuotedPrice(quotedPrice);
+        return toResponse(collectionRequestRepository.save(existing));
+    }
+
+    /**
+     * Initiates payment to the assigned collector via garbigo-wallet-service.
+     * That service has no designed API yet, so WalletServiceClient's
+     * contract is a best-effort guess, not a confirmed integration - if this
+     * fails outright (unreachable service), it surfaces as
+     * feign.RetryableException -> GlobalExceptionHandler's 503. A negative
+     * response that DOES come back sets paymentStatus to FAILED rather than
+     * throwing, so the client can see and retry.
+     */
+    public CollectionRequestResponse pay(String id, String clientId) {
+        CollectionRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can pay for this request");
+        }
+        if (existing.getCollectorId() == null) {
+            throw new CustomException("Assign a collector before paying");
+        }
+        if (existing.getQuotedPrice() == null) {
+            throw new CustomException("No price has been set for this request yet");
+        }
+        if (existing.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new CustomException("This request has already been paid for");
+        }
+        if (existing.getStatus() == CollectionStatus.CANCELLED) {
+            throw new CustomException("Cannot pay for a cancelled request");
+        }
+
+        existing.setPaymentStatus(PaymentStatus.PENDING);
+        collectionRequestRepository.save(existing);
+
+        WalletPaymentResult result = walletServiceClient.initiatePayment(
+                WalletPaymentRequest.builder()
+                        .payerId(clientId)
+                        .payeeId(existing.getCollectorId())
+                        .referenceId(existing.getId())
+                        .amount(existing.getQuotedPrice())
+                        .currency(paymentsCurrency)
+                        .build()
+        );
+
+        existing.setPaymentStatus(result != null && result.isSuccess() ? PaymentStatus.PAID : PaymentStatus.FAILED);
         return toResponse(collectionRequestRepository.save(existing));
     }
 
@@ -233,6 +315,18 @@ public class CollectionRequestService {
         );
     }
 
+    private void notifyDecline(CollectionRequest request, UserSummary collector, String reason) {
+        userSummaryService.findById(request.getClientId()).ifPresent(client ->
+                mailService.sendCollectorDeclined(
+                        client.getEmail(),
+                        client.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        collector == null ? "Your collector" : collector.preferredName(),
+                        reason
+                ));
+    }
+
     private void notifyCompletion(CollectionRequest request) {
         userSummaryService.findById(request.getClientId()).ifPresent(client ->
                 mailService.sendRequestCompleted(
@@ -265,6 +359,7 @@ public class CollectionRequestService {
                 .notes(entity.getNotes())
                 .quotedPrice(entity.getQuotedPrice())
                 .cancellationReason(entity.getCancellationReason())
+                .lastDeclineReason(entity.getLastDeclineReason())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

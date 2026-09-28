@@ -1,7 +1,10 @@
 package com.garbigo.collection.service;
 
+import com.garbigo.collection.client.WalletServiceClient;
 import com.garbigo.collection.dto.SewageRequestCreateRequest;
 import com.garbigo.collection.dto.SewageRequestResponse;
+import com.garbigo.collection.dto.WalletPaymentRequest;
+import com.garbigo.collection.dto.WalletPaymentResult;
 import com.garbigo.collection.exception.CustomException;
 import com.garbigo.collection.model.CollectionStatus;
 import com.garbigo.collection.model.Location;
@@ -39,9 +42,13 @@ public class SewageRequestService {
     private final UserSummaryService userSummaryService;
     private final SavedLocationService savedLocationService;
     private final MailService mailService;
+    private final WalletServiceClient walletServiceClient;
 
     @Value("${collections.cancellation-cutoff-hours}")
     private long cancellationCutoffHours;
+
+    @Value("${payments.currency}")
+    private String paymentsCurrency;
 
     public SewageRequestResponse create(String clientId, SewageRequestCreateRequest request) {
         SewageRequest saved = sewageRequestRepository.save(
@@ -74,10 +81,14 @@ public class SewageRequestService {
         return sewageRequestRepository.findByCollectorId(collectorId, pageable).map(this::toResponse);
     }
 
+    /** See CollectionRequestService.assign() - same accept/decline-pending semantics. */
     public SewageRequestResponse assign(String id, String clientId, String collectorId) {
         SewageRequest existing = findOrThrow(id);
         if (!clientId.equals(existing.getClientId())) {
             throw new CustomException("Only the requesting client can assign a collector to this request");
+        }
+        if (existing.getStatus() != CollectionStatus.PENDING && existing.getStatus() != CollectionStatus.ASSIGNED) {
+            throw new CustomException("Can only assign a collector while the request is PENDING or ASSIGNED (current: " + existing.getStatus() + ")");
         }
 
         UserSummary collector = userSummaryService.resolve(collectorId)
@@ -86,8 +97,28 @@ public class SewageRequestService {
 
         existing.setCollectorId(collector.getId());
         existing.setStatus(CollectionStatus.ASSIGNED);
+        existing.setLastDeclineReason(null);
         SewageRequest saved = sewageRequestRepository.save(existing);
         notifyAssignment(saved, collector);
+        return toResponse(saved);
+    }
+
+    /** See CollectionRequestService.decline(). */
+    public SewageRequestResponse decline(String id, String collectorId, String reason) {
+        SewageRequest existing = findOrThrow(id);
+        if (!collectorId.equals(existing.getCollectorId())) {
+            throw new CustomException("Only the assigned collector can decline this request");
+        }
+        if (existing.getStatus() != CollectionStatus.ASSIGNED) {
+            throw new CustomException("Can only decline a request that's awaiting acceptance (current: " + existing.getStatus() + ")");
+        }
+
+        UserSummary collector = userSummaryService.findById(collectorId).orElse(null);
+        existing.setCollectorId(null);
+        existing.setStatus(CollectionStatus.PENDING);
+        existing.setLastDeclineReason(reason);
+        SewageRequest saved = sewageRequestRepository.save(existing);
+        notifyDecline(saved, collector, reason);
         return toResponse(saved);
     }
 
@@ -104,19 +135,55 @@ public class SewageRequestService {
         return toResponse(saved);
     }
 
-    /** Lets the assigned collector set or adjust the price - the other side of the client's optional quotedPrice at booking time. */
-    public SewageRequestResponse updateQuote(String id, String collectorId, BigDecimal quotedPrice) {
+    /** Client-controlled - a collector who thinks the price is too low uses decline(), not this. */
+    public SewageRequestResponse updateQuote(String id, String clientId, BigDecimal quotedPrice) {
         if (quotedPrice.signum() <= 0) {
             throw new CustomException("Price must be greater than zero");
         }
         SewageRequest existing = findOrThrow(id);
-        if (!collectorId.equals(existing.getCollectorId())) {
-            throw new CustomException("Only the assigned collector can set the price for this request");
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can set the price for this request");
         }
         if (existing.getStatus() == CollectionStatus.COMPLETED || existing.getStatus() == CollectionStatus.CANCELLED) {
             throw new CustomException("Cannot update the price on a request that's already " + existing.getStatus());
         }
         existing.setQuotedPrice(quotedPrice);
+        return toResponse(sewageRequestRepository.save(existing));
+    }
+
+    /** See CollectionRequestService.pay() - same speculative wallet-service contract. */
+    public SewageRequestResponse pay(String id, String clientId) {
+        SewageRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can pay for this request");
+        }
+        if (existing.getCollectorId() == null) {
+            throw new CustomException("Assign a collector before paying");
+        }
+        if (existing.getQuotedPrice() == null) {
+            throw new CustomException("No price has been set for this request yet");
+        }
+        if (existing.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new CustomException("This request has already been paid for");
+        }
+        if (existing.getStatus() == CollectionStatus.CANCELLED) {
+            throw new CustomException("Cannot pay for a cancelled request");
+        }
+
+        existing.setPaymentStatus(PaymentStatus.PENDING);
+        sewageRequestRepository.save(existing);
+
+        WalletPaymentResult result = walletServiceClient.initiatePayment(
+                WalletPaymentRequest.builder()
+                        .payerId(clientId)
+                        .payeeId(existing.getCollectorId())
+                        .referenceId(existing.getId())
+                        .amount(existing.getQuotedPrice())
+                        .currency(paymentsCurrency)
+                        .build()
+        );
+
+        existing.setPaymentStatus(result != null && result.isSuccess() ? PaymentStatus.PAID : PaymentStatus.FAILED);
         return toResponse(sewageRequestRepository.save(existing));
     }
 
@@ -191,6 +258,18 @@ public class SewageRequestService {
         );
     }
 
+    private void notifyDecline(SewageRequest request, UserSummary collector, String reason) {
+        userSummaryService.findById(request.getClientId()).ifPresent(client ->
+                mailService.sendCollectorDeclined(
+                        client.getEmail(),
+                        client.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        collector == null ? "Your collector" : collector.preferredName(),
+                        reason
+                ));
+    }
+
     private void notifyCompletion(SewageRequest request) {
         // No rating feature for sewage requests yet, so no rating prompt.
         userSummaryService.findById(request.getClientId()).ifPresent(client ->
@@ -226,6 +305,7 @@ public class SewageRequestService {
                 .notes(entity.getNotes())
                 .quotedPrice(entity.getQuotedPrice())
                 .cancellationReason(entity.getCancellationReason())
+                .lastDeclineReason(entity.getLastDeclineReason())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

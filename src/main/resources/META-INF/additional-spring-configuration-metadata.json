@@ -102,6 +102,13 @@
       "description": "Spring cron (evaluated in UTC) for the job that refreshes the local user cache from auth-service. Set to \"-\" to disable.",
       "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
       "defaultValue": "0 0 * * * *"
+    },
+    {
+      "name": "payments.currency",
+      "type": "java.lang.String",
+      "description": "Currency code passed to wallet-service on payment requests - WalletServiceClient's contract is speculative, wallet-service isn't designed yet.",
+      "sourceType": "com.garbigo.collection.service.CollectionRequestService",
+      "defaultValue": "KES"
     }
   ]
 }

@@ -79,12 +79,29 @@ public class SewageRequestController {
     }
 
     @PutMapping("/{id}/quote")
-    @PreAuthorize("hasRole('COLLECTOR')")
+    @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<SewageRequestResponse> updateQuote(
             Authentication authentication,
             @PathVariable String id,
             @RequestParam BigDecimal quotedPrice) {
         return ResponseEntity.ok(sewageRequestService.updateQuote(id, authentication.getName(), quotedPrice));
+    }
+
+    @PutMapping("/{id}/decline")
+    @PreAuthorize("hasRole('COLLECTOR')")
+    public ResponseEntity<SewageRequestResponse> decline(
+            Authentication authentication,
+            @PathVariable String id,
+            @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(sewageRequestService.decline(id, authentication.getName(), reason));
+    }
+
+    @PostMapping("/{id}/pay")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<SewageRequestResponse> pay(
+            Authentication authentication,
+            @PathVariable String id) {
+        return ResponseEntity.ok(sewageRequestService.pay(id, authentication.getName()));
     }
 
     @DeleteMapping("/{id}")

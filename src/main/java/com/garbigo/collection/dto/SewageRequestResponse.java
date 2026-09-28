@@ -30,6 +30,7 @@ public class SewageRequestResponse {
     private String notes;
     private BigDecimal quotedPrice;
     private String cancellationReason;
+    private String lastDeclineReason;
     private Instant createdAt;
     private Instant updatedAt;
 }

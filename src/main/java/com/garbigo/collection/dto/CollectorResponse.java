@@ -16,4 +16,7 @@ public class CollectorResponse {
     private String email;
     private Double averageRating;
     private long ratingCount;
+
+    /** Only populated by GET /collectors/nearby - null on the plain listing. */
+    private Double distanceKm;
 }

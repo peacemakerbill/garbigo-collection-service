@@ -167,6 +167,27 @@ public class MailService {
         send(toEmail, "New " + serviceType + " job assigned to you", "email/collector-assigned-collector", variables);
     }
 
+    /** Sent to the client when their assigned collector declines (e.g. price too low) - request has reverted to PENDING. */
+    public void sendCollectorDeclined(
+            String toEmail,
+            String recipientName,
+            String requestId,
+            String serviceType,
+            String collectorName,
+            String reason) {
+
+        Map<String, Object> variables = Map.of(
+                "recipientName", displayName(recipientName),
+                "requestId", requestId,
+                "serviceType", serviceType,
+                "collectorName", collectorName,
+                "reason", reason == null || reason.isBlank() ? "No reason given" : reason
+        );
+
+        send(toEmail, "Your " + serviceType.toLowerCase() + " request needs a new collector",
+                "email/collector-declined", variables);
+    }
+
     /** Sent to the client when a request's status becomes COMPLETED. showRatingPrompt is false for sewage requests (no rating feature there). */
     public void sendRequestCompleted(
             String toEmail,

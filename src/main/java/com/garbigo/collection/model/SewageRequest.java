@@ -43,6 +43,7 @@ public class SewageRequest {
     private String notes;
     private BigDecimal quotedPrice;
     private String cancellationReason;
+    private String lastDeclineReason;
 
     @CreatedDate
     private Instant createdAt;

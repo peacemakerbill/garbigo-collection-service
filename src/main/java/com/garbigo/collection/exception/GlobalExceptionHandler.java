@@ -28,13 +28,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new MessageResponse(message));
     }
 
-    // Feign throws this specifically for connection failures (auth-service
-    // unreachable), not for a normal error response it actually returned -
-    // that distinction is what keeps this from also swallowing real 404s/etc.
+    // Feign throws this specifically for connection failures (a downstream
+    // service unreachable), not for a normal error response it actually
+    // returned - that distinction is what keeps this from also swallowing
+    // real 404s/etc. Covers both auth-service and wallet-service now.
     @ExceptionHandler(RetryableException.class)
-    public ResponseEntity<MessageResponse> handleAuthServiceUnavailable(RetryableException ex) {
+    public ResponseEntity<MessageResponse> handleServiceUnavailable(RetryableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(new MessageResponse("The authentication service is temporarily unavailable. Please try again in a moment."));
+                .body(new MessageResponse("A required service is temporarily unavailable. Please try again in a moment."));
     }
 
     @ExceptionHandler(Exception.class)

@@ -60,6 +60,12 @@ services:
   wallet:
     base-url: ${WALLET_SERVICE_URL:http://localhost:8082}
 
+# WalletServiceClient's contract is a guess - wallet-service isn't designed
+# yet. This currency is just what CollectionRequestService/SewageRequestService
+# pass along with a payment request.
+payments:
+  currency: ${PAYMENTS_CURRENCY:KES}
+
 app:
   name: ${APP_NAME:Garbigo}
   url: ${APP_URL:http://localhost:3000}
@@ -90,3 +96,11 @@ springdoc:
     path: /docs
   api-docs:
     path: /api-docs
+
+# Just quiets SpringDoc's startup notice that /docs and /api-docs are
+# reachable - doesn't touch springdoc.*.enabled, so the docs still work.
+# Set those two properties to false instead if you actually want them off
+# (e.g. in production).
+logging:
+  level:
+    org.springdoc.core.events.SpringDocAppInitializer: ERROR

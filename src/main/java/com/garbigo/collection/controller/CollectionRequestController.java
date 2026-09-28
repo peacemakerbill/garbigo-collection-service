@@ -93,12 +93,29 @@ public class CollectionRequestController {
     }
 
     @PutMapping("/{id}/quote")
-    @PreAuthorize("hasRole('COLLECTOR')")
+    @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<CollectionRequestResponse> updateQuote(
             Authentication authentication,
             @PathVariable String id,
             @RequestParam BigDecimal quotedPrice) {
         return ResponseEntity.ok(collectionRequestService.updateQuote(id, authentication.getName(), quotedPrice));
+    }
+
+    @PutMapping("/{id}/decline")
+    @PreAuthorize("hasRole('COLLECTOR')")
+    public ResponseEntity<CollectionRequestResponse> decline(
+            Authentication authentication,
+            @PathVariable String id,
+            @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(collectionRequestService.decline(id, authentication.getName(), reason));
+    }
+
+    @PostMapping("/{id}/pay")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<CollectionRequestResponse> pay(
+            Authentication authentication,
+            @PathVariable String id) {
+        return ResponseEntity.ok(collectionRequestService.pay(id, authentication.getName()));
     }
 
     @DeleteMapping("/{id}")
