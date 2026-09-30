@@ -17,46 +17,75 @@
                 </tr>
 
                 <tr>
-                    <td style="padding:32px;">
-                        <h1 style="font-size:20px;color:#1b4332;margin:0 0 8px;">Pickup confirmed</h1>
-                        <p style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 20px;">
+                    <td style="padding:28px 32px 0;text-align:center;">
+                        <div style="display:inline-block;width:60px;height:60px;line-height:60px;border-radius:50%;background-color:#e8f3ee;">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                <path d="M10 11v6"></path>
+                                <path d="M14 11v6"></path>
+                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                            </svg>
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:16px 32px 32px;">
+                        <h1 style="font-size:21px;color:#1b4332;margin:0 0 8px;text-align:center;letter-spacing:-0.2px;">Pickup confirmed</h1>
+                        <p style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 24px;text-align:center;">
                             Hi <span th:text="${recipientName}">there</span>, we've got your request. Here's a
                             summary of what you scheduled:
                         </p>
 
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                               style="border:1px solid #e2e6e4;border-radius:6px;margin:0 0 24px;">
+                               style="border:1px solid #e2e6e4;border-left:4px solid #2d6a4f;border-radius:6px;overflow:hidden;">
                             <tr>
-                                <td style="padding:12px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Request ID</td>
-                                <td style="padding:12px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
+                                        <line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line>
+                                        <line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line>
+                                    </svg>Request ID
+                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${requestId}">REQ-123
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:12px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Waste type</td>
-                                <td style="padding:12px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
+                                        <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                                    </svg>Waste type
+                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${wasteType}">GENERAL
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:12px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Scheduled for</td>
-                                <td style="padding:12px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
+                                        <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>Scheduled for
+                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${scheduledAt}">1 Jan 2026, 09:00
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:12px 16px;font-size:13px;color:#6b7a75;">Pickup location</td>
-                                <td style="padding:12px 16px;font-size:13px;color:#1b4332;font-weight:600;text-align:right;"
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;white-space:nowrap;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+                                    </svg>Pickup location
+                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;text-align:right;"
                                     th:text="${locationSummary}">Westlands, Nairobi
                                 </td>
                             </tr>
                         </table>
 
-                        <p style="text-align:center;margin:0;">
-                            <a th:href="${appUrl}"
-                               style="display:inline-block;background-color:#2d6a4f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;">
-                                View in Garbigo
-                            </a>
+                        <p style="text-align:center;font-size:13px;color:#9aa8a3;margin:24px 0 0;">
+                            Thanks for keeping things tidy with <span th:text="${appName}">Garbigo</span>
                         </p>
                     </td>
                 </tr>

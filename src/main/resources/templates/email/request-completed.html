@@ -17,24 +17,33 @@
                 </tr>
 
                 <tr>
-                    <td style="padding:32px;">
-                        <h1 style="font-size:20px;color:#1b4332;margin:0 0 8px;">All done!</h1>
-                        <p style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 20px;">
+                    <td style="padding:28px 32px 0;text-align:center;">
+                        <div style="display:inline-block;width:60px;height:60px;line-height:60px;border-radius:50%;background-color:#e6f4ea;">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:16px 32px 32px;">
+                        <h1 style="font-size:21px;color:#1b4332;margin:0 0 8px;text-align:center;letter-spacing:-0.2px;">All done!</h1>
+                        <p style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 4px;text-align:center;">
                             Hi <span th:text="${recipientName}">there</span>, your
                             <span th:text="${serviceType}">Garbage pickup</span> request
-                            (<span th:text="${requestId}">REQ-123</span>) has been marked complete. Thanks for
-                            using Garbigo.
+                            (<span th:text="${requestId}">REQ-123</span>) has been marked complete.
                         </p>
 
-                        <p th:if="${showRatingPrompt}" style="font-size:14px;color:#3c4a44;line-height:1.5;margin:0 0 20px;">
-                            Got a minute? Rating your collector helps other clients pick a good one.
+                        <p style="font-size:13px;color:#9aa8a3;line-height:1.5;margin:0;text-align:center;">
+                            Thanks for using <span th:text="${appName}">Garbigo</span>
                         </p>
 
-                        <p style="text-align:center;margin:0;">
-                            <a th:href="${appUrl}"
-                               style="display:inline-block;background-color:#2d6a4f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;">
-                                <span th:text="${showRatingPrompt} ? 'Rate your collector' : 'View in Garbigo'">View in Garbigo</span>
-                            </a>
+                        <p th:if="${showRatingPrompt}" style="font-size:13px;color:#6b7a75;line-height:1.5;margin:20px 0 0;text-align:center;padding:14px 16px;background-color:#f4f6f5;border-radius:6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>Got a minute? Rating your collector in the app helps other clients pick a good one.
                         </p>
                     </td>
                 </tr>
