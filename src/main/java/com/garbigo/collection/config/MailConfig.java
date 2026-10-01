@@ -1,6 +1,6 @@
 package com.garbigo.collection.config;
 
-import org.springframework.boot.mail.autoconfigure.MailProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -9,49 +9,62 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import java.util.Properties;
 
 /**
- * Builds JavaMailSender manually instead of leaving it to Spring Boot's own
- * spring.mail.* auto-configuration, purely so username/password get
- * sanitized first. A value pasted with quotes around it (single or
- * double) is an easy, common mistake - .env files have no quoting syntax,
- * so Spring Boot would otherwise send the quote characters to the SMTP
- * server as part of the literal credential (exactly what broke
- * MAIL_PASSWORD once already: 'an app password' was sent quotes and all).
+ * Builds JavaMailSender directly from spring.mail.* via @Value, rather
+ * than injecting Spring Boot's own MailProperties bean. An earlier
+ * version of this class depended on that bean - in this Spring Boot
+ * 4.1.1 build, it's never actually registered (mail auto-configuration
+ * doesn't appear to trigger, despite spring-boot-starter-mail being on
+ * the classpath and spring.mail.* resolving fine via @Value elsewhere).
+ * Rather than chase that further, this just reads the same properties
+ * directly - @Value resolves against the Environment regardless of
+ * which auto-configuration classes did or didn't fire.
  *
- * Everything else (host, port, the mail.smtp.* properties map, protocol,
- * default encoding) still comes straight from the auto-configured
- * MailProperties/spring.mail.* - only username/password get this extra
- * pass. Defining this bean is what stops Spring Boot's own
- * @ConditionalOnMissingBean(JavaMailSender.class) auto-configuration from
- * also creating one - MailProperties itself still binds normally either
- * way, since that's a separate concern from the bean creation.
+ * Sole purpose: sanitize username/password against stray quotes before
+ * use - a value pasted as 'app password' (single or double quotes) is
+ * an easy, common .env mistake, since .env has no quoting syntax and
+ * Spring Boot would otherwise send the quote characters to the SMTP
+ * server as part of the literal credential (exactly what broke
+ * MAIL_PASSWORD once already).
+ *
+ * mail.smtp.auth/starttls.enable are read individually below rather than
+ * generically, since they're the only two spring.mail.properties.*
+ * entries application.yml actually sets - add another @Value line here
+ * if a third one is ever needed.
  */
 @Configuration
 public class MailConfig {
 
-    private final MailProperties mailProperties;
+    @Value("${spring.mail.host}")
+    private String host;
 
-    public MailConfig(MailProperties mailProperties) {
-        this.mailProperties = mailProperties;
-    }
+    @Value("${spring.mail.port}")
+    private int port;
+
+    @Value("${spring.mail.username}")
+    private String username;
+
+    @Value("${spring.mail.password}")
+    private String password;
+
+    @Value("${spring.mail.properties.mail.smtp.auth:true}")
+    private String smtpAuth;
+
+    @Value("${spring.mail.properties.mail.smtp.starttls.enable:true}")
+    private String smtpStarttls;
 
     @Bean
     JavaMailSender javaMailSender() {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
-        sender.setHost(mailProperties.getHost());
-        if (mailProperties.getPort() != null) {
-            sender.setPort(mailProperties.getPort());
-        }
-        if (mailProperties.getProtocol() != null) {
-            sender.setProtocol(mailProperties.getProtocol());
-        }
-        if (mailProperties.getDefaultEncoding() != null) {
-            sender.setDefaultEncoding(mailProperties.getDefaultEncoding().name());
-        }
-        sender.setUsername(stripQuotes(mailProperties.getUsername()));
-        sender.setPassword(stripQuotes(mailProperties.getPassword()));
+        sender.setHost(host);
+        sender.setPort(port);
+        sender.setProtocol("smtp");
+        sender.setDefaultEncoding("UTF-8");
+        sender.setUsername(stripQuotes(username));
+        sender.setPassword(stripQuotes(password));
 
         Properties javaMailProperties = new Properties();
-        javaMailProperties.putAll(mailProperties.getProperties());
+        javaMailProperties.put("mail.smtp.auth", smtpAuth);
+        javaMailProperties.put("mail.smtp.starttls.enable", smtpStarttls);
         sender.setJavaMailProperties(javaMailProperties);
 
         return sender;
