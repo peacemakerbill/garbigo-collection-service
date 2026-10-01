@@ -90,6 +90,15 @@ scheduling:
     cron: "${RECURRING_REQUESTS_CRON:0 0 6 * * *}"
   user-directory-sync:
     cron: "${USER_DIRECTORY_SYNC_CRON:0 0 * * * *}"
+    # Also runs once immediately on startup by default - a pure upsert, so
+    # there's no reason a fresh database should wait up to an hour before
+    # any user's role is known.
+    run-on-startup: ${USER_DIRECTORY_SYNC_ON_STARTUP:true}
+    # How many times the startup attempt (only the startup one, not the
+    # cron) retries if auth-service/RabbitMQ aren't quite up yet when this
+    # service boots, and how long to wait between tries.
+    startup-retry-attempts: ${USER_DIRECTORY_SYNC_STARTUP_RETRY_ATTEMPTS:3}
+    startup-retry-delay-seconds: ${USER_DIRECTORY_SYNC_STARTUP_RETRY_DELAY_SECONDS:5}
 
 springdoc:
   swagger-ui:

@@ -99,7 +99,7 @@
     {
       "name": "scheduling.user-directory-sync.cron",
       "type": "java.lang.String",
-      "description": "Spring cron (evaluated in UTC) for the job that refreshes the local user cache from auth-service. Set to \"-\" to disable.",
+      "description": "Spring cron (evaluated in UTC) for the job that refreshes the local user cache from auth-service. Defaults to hourly. Set to \"-\" to disable.",
       "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
       "defaultValue": "0 0 * * * *"
     },
@@ -115,6 +115,27 @@
       "type": "org.springframework.boot.logging.LogLevel",
       "description": "Suppresses SpringDoc's startup notice that /docs and /api-docs are reachable by default - doesn't disable the docs themselves (springdoc.swagger-ui.enabled / springdoc.api-docs.enabled do that), just quiets that one log line. Set to a more verbose level (e.g. INFO) to see it again.",
       "defaultValue": "ERROR"
+    },
+    {
+      "name": "scheduling.user-directory-sync.run-on-startup",
+      "type": "java.lang.Boolean",
+      "description": "Whether UserDirectorySyncRunner also runs once immediately on startup, in addition to its hourly cron. A pure upsert (never deletes), so true by default - a fresh database shouldn't have to wait for the first cron tick before any user's role is known.",
+      "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
+      "defaultValue": true
+    },
+    {
+      "name": "scheduling.user-directory-sync.startup-retry-attempts",
+      "type": "java.lang.Integer",
+      "description": "How many times the startup sync attempt retries if it fails (e.g. auth-service/RabbitMQ not up yet) before giving up until the next scheduled run. Only applies to the startup attempt, not the cron.",
+      "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
+      "defaultValue": 3
+    },
+    {
+      "name": "scheduling.user-directory-sync.startup-retry-delay-seconds",
+      "type": "java.lang.Long",
+      "description": "Seconds to wait between startup sync retry attempts. Blocks application startup for up to (startup-retry-attempts - 1) * this value in the worst case - a deliberate, bounded tradeoff.",
+      "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
+      "defaultValue": 5
     }
   ]
 }
