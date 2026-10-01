@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -15,9 +16,22 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
-/** Sends branded HTML emails from templates under resources/templates/email/. */
+/**
+ * Sends branded HTML emails from templates under resources/templates/email/.
+ *
+ * @Async at class level - every public method here is a fire-and-forget
+ * notification (none of their callers use a return value or need to wait
+ * for the send to finish), so a request like creating a collection
+ * request no longer blocks on an actual SMTP round-trip before
+ * responding. Runs on the bounded pool in AsyncConfig, not Spring's
+ * unbounded default. A send failure is still caught and logged inside
+ * send() itself exactly as before - that didn't change, and still
+ * doesn't propagate anywhere there'd be something to catch it now that
+ * it's off-thread.
+ */
 @Service
 @Slf4j
+@Async("mailTaskExecutor")
 public class MailService {
 
     private static final DateTimeFormatter TIMESTAMP_FORMAT =

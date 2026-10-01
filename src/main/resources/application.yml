@@ -16,6 +16,14 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # We only ever use StringRedisTemplate directly (rate limiting, JWT
+      # revocation) - no actual Spring Data Redis repository interfaces.
+      # Without this, having both Mongo and Redis on the classpath makes
+      # every startup log "Could not safely identify store assignment" for
+      # each of our 7 Mongo repositories, since Redis's own strict-mode
+      # scan checks them too before correctly concluding none are its.
+      repositories:
+        enabled: false
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
