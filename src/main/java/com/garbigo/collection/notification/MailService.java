@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -232,6 +233,15 @@ public class MailService {
             helper.setText(html, true);
             javaMailSender.send(message);
         } catch (MessagingException e) {
+            // Thrown building the message itself (bad address, etc.)
+            log.warn("Failed to send '{}' email to {}: {}", templateName, toEmail, e.getMessage());
+        } catch (MailException e) {
+            // javaMailSender.send(...) throws Spring's own unchecked MailException
+            // hierarchy on send failure (auth, connection, etc.) - NOT
+            // MessagingException. Missing this catch is why a bad SMTP
+            // credential was crashing the whole request instead of just
+            // failing to send the email, defeating the entire point of
+            // wrapping this in a try/catch in the first place.
             log.warn("Failed to send '{}' email to {}: {}", templateName, toEmail, e.getMessage());
         }
     }
