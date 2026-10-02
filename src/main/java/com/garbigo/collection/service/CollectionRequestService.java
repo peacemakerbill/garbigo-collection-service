@@ -53,6 +53,14 @@ public class CollectionRequestService {
     @Value("${collections.cancellation-cutoff-hours}")
     private long cancellationCutoffHours;
 
+    /**
+     * Only used to STAMP currency onto a request the moment a price is set
+     * (create with quotedPrice, or updateQuote) - once stored, every other
+     * use (pay(), emails) reads the request's OWN currency field, not this
+     * live config value. That's deliberate: if this default ever changes
+     * later, a request already quoted under the old currency should stay
+     * what it was actually quoted in, not get silently reinterpreted.
+     */
     @Value("${payments.currency}")
     private String paymentsCurrency;
 
@@ -67,6 +75,7 @@ public class CollectionRequestService {
                         .location(resolveLocation(clientId, request.getSavedLocationId(), request.getLocation()))
                         .notes(request.getNotes())
                         .quotedPrice(request.getQuotedPrice())
+                        .currency(request.getQuotedPrice() != null ? paymentsCurrency : null)
                         .build()
         );
         notifyClientOfConfirmation(saved);
@@ -197,6 +206,7 @@ public class CollectionRequestService {
             throw new CustomException("Cannot update the price on a request that's already " + existing.getStatus());
         }
         existing.setQuotedPrice(quotedPrice);
+        existing.setCurrency(paymentsCurrency);
         return toResponse(collectionRequestRepository.save(existing));
     }
 
@@ -208,6 +218,10 @@ public class CollectionRequestService {
      * feign.RetryableException -> GlobalExceptionHandler's 503. A negative
      * response that DOES come back sets paymentStatus to FAILED rather than
      * throwing, so the client can see and retry.
+     *
+     * Uses the request's OWN stored currency, not the live config default -
+     * falls back to the current default only for a legacy record that
+     * somehow has a price but no stored currency (predates this field).
      */
     public CollectionRequestResponse pay(String id, String clientId) {
         CollectionRequest existing = findOrThrow(id);
@@ -230,13 +244,15 @@ public class CollectionRequestService {
         existing.setPaymentStatus(PaymentStatus.PENDING);
         collectionRequestRepository.save(existing);
 
+        String currency = existing.getCurrency() != null ? existing.getCurrency() : paymentsCurrency;
+
         WalletPaymentResult result = walletServiceClient.initiatePayment(
                 WalletPaymentRequest.builder()
                         .payerId(clientId)
                         .payeeId(existing.getCollectorId())
                         .referenceId(existing.getId())
                         .amount(existing.getQuotedPrice())
-                        .currency(paymentsCurrency)
+                        .currency(currency)
                         .build()
         );
 
@@ -286,7 +302,9 @@ public class CollectionRequestService {
                         request.getId(),
                         request.getWasteType().name(),
                         formatScheduledAt(request.getScheduledAt()),
-                        formatLocationSummary(request.getLocation())
+                        formatLocationSummary(request.getLocation()),
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
     }
 
@@ -302,7 +320,9 @@ public class CollectionRequestService {
                         SERVICE_TYPE,
                         collector.preferredName(),
                         scheduledAt,
-                        locationSummary
+                        locationSummary,
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
 
         mailService.sendJobAssignedToCollector(
@@ -311,7 +331,9 @@ public class CollectionRequestService {
                 request.getId(),
                 SERVICE_TYPE,
                 scheduledAt,
-                locationSummary
+                locationSummary,
+                request.getQuotedPrice(),
+                request.getCurrency()
         );
     }
 
@@ -323,7 +345,9 @@ public class CollectionRequestService {
                         request.getId(),
                         SERVICE_TYPE,
                         collector == null ? "Your collector" : collector.preferredName(),
-                        reason
+                        reason,
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
     }
 
@@ -334,7 +358,9 @@ public class CollectionRequestService {
                         client.preferredName(),
                         request.getId(),
                         SERVICE_TYPE,
-                        true
+                        true,
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
     }
 
@@ -358,6 +384,7 @@ public class CollectionRequestService {
                 .location(LocationMapper.toResponse(entity.getLocation()))
                 .notes(entity.getNotes())
                 .quotedPrice(entity.getQuotedPrice())
+                .currency(entity.getCurrency())
                 .cancellationReason(entity.getCancellationReason())
                 .lastDeclineReason(entity.getLastDeclineReason())
                 .createdAt(entity.getCreatedAt())

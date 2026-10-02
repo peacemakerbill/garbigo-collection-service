@@ -33,6 +33,7 @@ public class CollectionRequest {
     private BigDecimal quotedPrice;
     private String cancellationReason;
     private String lastDeclineReason;
+    private String currency;
 
     @CreatedDate
     private Instant createdAt;

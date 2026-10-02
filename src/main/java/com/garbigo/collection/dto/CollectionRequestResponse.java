@@ -29,6 +29,7 @@ public class CollectionRequestResponse {
     private BigDecimal quotedPrice;
     private String cancellationReason;
     private String lastDeclineReason;
+    private String currency;
     private Instant createdAt;
     private Instant updatedAt;
 }

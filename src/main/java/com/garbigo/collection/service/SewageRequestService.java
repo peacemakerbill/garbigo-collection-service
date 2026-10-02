@@ -47,6 +47,7 @@ public class SewageRequestService {
     @Value("${collections.cancellation-cutoff-hours}")
     private long cancellationCutoffHours;
 
+    /** See CollectionRequestService's identical field - same "stamp once, read from storage after" rule. */
     @Value("${payments.currency}")
     private String paymentsCurrency;
 
@@ -63,6 +64,7 @@ public class SewageRequestService {
                         .location(resolveLocation(clientId, request.getSavedLocationId(), request.getLocation()))
                         .notes(request.getNotes())
                         .quotedPrice(request.getQuotedPrice())
+                        .currency(request.getQuotedPrice() != null ? paymentsCurrency : null)
                         .build()
         );
         notifyClientOfConfirmation(saved);
@@ -148,10 +150,11 @@ public class SewageRequestService {
             throw new CustomException("Cannot update the price on a request that's already " + existing.getStatus());
         }
         existing.setQuotedPrice(quotedPrice);
+        existing.setCurrency(paymentsCurrency);
         return toResponse(sewageRequestRepository.save(existing));
     }
 
-    /** See CollectionRequestService.pay() - same speculative wallet-service contract. */
+    /** See CollectionRequestService.pay() - same speculative wallet-service contract, same stored-currency rule. */
     public SewageRequestResponse pay(String id, String clientId) {
         SewageRequest existing = findOrThrow(id);
         if (!clientId.equals(existing.getClientId())) {
@@ -173,13 +176,15 @@ public class SewageRequestService {
         existing.setPaymentStatus(PaymentStatus.PENDING);
         sewageRequestRepository.save(existing);
 
+        String currency = existing.getCurrency() != null ? existing.getCurrency() : paymentsCurrency;
+
         WalletPaymentResult result = walletServiceClient.initiatePayment(
                 WalletPaymentRequest.builder()
                         .payerId(clientId)
                         .payeeId(existing.getCollectorId())
                         .referenceId(existing.getId())
                         .amount(existing.getQuotedPrice())
-                        .currency(paymentsCurrency)
+                        .currency(currency)
                         .build()
         );
 
@@ -229,7 +234,9 @@ public class SewageRequestService {
                         String.valueOf(request.getTankVolumeLiters()),
                         request.getUrgency().name(),
                         formatScheduledAt(request.getScheduledAt()),
-                        formatLocationSummary(request.getLocation())
+                        formatLocationSummary(request.getLocation()),
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
     }
 
@@ -245,7 +252,9 @@ public class SewageRequestService {
                         SERVICE_TYPE,
                         collector.preferredName(),
                         scheduledAt,
-                        locationSummary
+                        locationSummary,
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
 
         mailService.sendJobAssignedToCollector(
@@ -254,7 +263,9 @@ public class SewageRequestService {
                 request.getId(),
                 SERVICE_TYPE,
                 scheduledAt,
-                locationSummary
+                locationSummary,
+                request.getQuotedPrice(),
+                request.getCurrency()
         );
     }
 
@@ -266,7 +277,9 @@ public class SewageRequestService {
                         request.getId(),
                         SERVICE_TYPE,
                         collector == null ? "Your collector" : collector.preferredName(),
-                        reason
+                        reason,
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
     }
 
@@ -278,7 +291,9 @@ public class SewageRequestService {
                         client.preferredName(),
                         request.getId(),
                         SERVICE_TYPE,
-                        false
+                        false,
+                        request.getQuotedPrice(),
+                        request.getCurrency()
                 ));
     }
 
@@ -304,6 +319,7 @@ public class SewageRequestService {
                 .location(LocationMapper.toResponse(entity.getLocation()))
                 .notes(entity.getNotes())
                 .quotedPrice(entity.getQuotedPrice())
+                .currency(entity.getCurrency())
                 .cancellationReason(entity.getCancellationReason())
                 .lastDeclineReason(entity.getLastDeclineReason())
                 .createdAt(entity.getCreatedAt())

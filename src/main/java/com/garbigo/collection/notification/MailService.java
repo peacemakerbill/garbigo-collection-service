@@ -12,8 +12,11 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -71,15 +74,17 @@ public class MailService {
             String requestId,
             String wasteType,
             String scheduledAt,
-            String locationSummary) {
+            String locationSummary,
+            BigDecimal quotedPrice,
+            String currency) {
 
-        Map<String, Object> variables = Map.of(
-                "recipientName", displayName(recipientName),
-                "requestId", requestId,
-                "wasteType", wasteType,
-                "scheduledAt", scheduledAt,
-                "locationSummary", locationSummary
-        );
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("recipientName", displayName(recipientName));
+        variables.put("requestId", requestId);
+        variables.put("wasteType", wasteType);
+        variables.put("scheduledAt", scheduledAt);
+        variables.put("locationSummary", locationSummary);
+        putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "Your Garbigo pickup is confirmed", "email/collection-request-confirmation", variables);
     }
@@ -106,16 +111,18 @@ public class MailService {
             String tankVolumeLiters,
             String urgency,
             String scheduledAt,
-            String locationSummary) {
+            String locationSummary,
+            BigDecimal quotedPrice,
+            String currency) {
 
-        Map<String, Object> variables = Map.of(
-                "recipientName", displayName(recipientName),
-                "requestId", requestId,
-                "tankVolumeLiters", tankVolumeLiters,
-                "urgency", urgency,
-                "scheduledAt", scheduledAt,
-                "locationSummary", locationSummary
-        );
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("recipientName", displayName(recipientName));
+        variables.put("requestId", requestId);
+        variables.put("tankVolumeLiters", tankVolumeLiters);
+        variables.put("urgency", urgency);
+        variables.put("scheduledAt", scheduledAt);
+        variables.put("locationSummary", locationSummary);
+        putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "Your Garbigo exhauster request is confirmed", "email/sewage-request-confirmation", variables);
     }
@@ -147,16 +154,18 @@ public class MailService {
             String serviceType,
             String collectorName,
             String scheduledAt,
-            String locationSummary) {
+            String locationSummary,
+            BigDecimal quotedPrice,
+            String currency) {
 
-        Map<String, Object> variables = Map.of(
-                "recipientName", displayName(recipientName),
-                "requestId", requestId,
-                "serviceType", serviceType,
-                "collectorName", collectorName,
-                "scheduledAt", scheduledAt,
-                "locationSummary", locationSummary
-        );
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("recipientName", displayName(recipientName));
+        variables.put("requestId", requestId);
+        variables.put("serviceType", serviceType);
+        variables.put("collectorName", collectorName);
+        variables.put("scheduledAt", scheduledAt);
+        variables.put("locationSummary", locationSummary);
+        putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "A collector has been assigned to your " + serviceType.toLowerCase() + " request",
                 "email/collector-assigned-client", variables);
@@ -169,15 +178,17 @@ public class MailService {
             String requestId,
             String serviceType,
             String scheduledAt,
-            String locationSummary) {
+            String locationSummary,
+            BigDecimal quotedPrice,
+            String currency) {
 
-        Map<String, Object> variables = Map.of(
-                "recipientName", displayName(recipientName),
-                "requestId", requestId,
-                "serviceType", serviceType,
-                "scheduledAt", scheduledAt,
-                "locationSummary", locationSummary
-        );
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("recipientName", displayName(recipientName));
+        variables.put("requestId", requestId);
+        variables.put("serviceType", serviceType);
+        variables.put("scheduledAt", scheduledAt);
+        variables.put("locationSummary", locationSummary);
+        putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "New " + serviceType + " job assigned to you", "email/collector-assigned-collector", variables);
     }
@@ -189,15 +200,17 @@ public class MailService {
             String requestId,
             String serviceType,
             String collectorName,
-            String reason) {
+            String reason,
+            BigDecimal quotedPrice,
+            String currency) {
 
-        Map<String, Object> variables = Map.of(
-                "recipientName", displayName(recipientName),
-                "requestId", requestId,
-                "serviceType", serviceType,
-                "collectorName", collectorName,
-                "reason", reason == null || reason.isBlank() ? "No reason given" : reason
-        );
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("recipientName", displayName(recipientName));
+        variables.put("requestId", requestId);
+        variables.put("serviceType", serviceType);
+        variables.put("collectorName", collectorName);
+        variables.put("reason", reason == null || reason.isBlank() ? "No reason given" : reason);
+        putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "Your " + serviceType.toLowerCase() + " request needs a new collector",
                 "email/collector-declined", variables);
@@ -209,20 +222,35 @@ public class MailService {
             String recipientName,
             String requestId,
             String serviceType,
-            boolean showRatingPrompt) {
+            boolean showRatingPrompt,
+            BigDecimal quotedPrice,
+            String currency) {
 
-        Map<String, Object> variables = Map.of(
-                "recipientName", displayName(recipientName),
-                "requestId", requestId,
-                "serviceType", serviceType,
-                "showRatingPrompt", showRatingPrompt
-        );
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("recipientName", displayName(recipientName));
+        variables.put("requestId", requestId);
+        variables.put("serviceType", serviceType);
+        variables.put("showRatingPrompt", showRatingPrompt);
+        putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "Your " + serviceType.toLowerCase() + " is complete", "email/request-completed", variables);
     }
 
     private String displayName(String recipientName) {
         return (recipientName == null || recipientName.isBlank()) ? "there" : recipientName;
+    }
+
+    /**
+     * Only adds the price/currency variables when a price is actually set -
+     * quotedPrice is optional on a request right up until someone sets it
+     * (create, updateQuote), so templates guard display with
+     * th:if="${quotedPrice != null}" rather than assuming it's always there.
+     */
+    private void putPrice(Map<String, Object> variables, BigDecimal quotedPrice, String currency) {
+        if (quotedPrice != null) {
+            variables.put("quotedPrice", quotedPrice.setScale(2, RoundingMode.HALF_UP).toPlainString());
+            variables.put("currency", currency);
+        }
     }
 
     private void send(String toEmail, String subject, String templateName, Map<String, Object> variables) {

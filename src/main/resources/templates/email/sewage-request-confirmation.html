@@ -18,13 +18,8 @@
 
                 <tr>
                     <td style="padding:28px 32px 0;text-align:center;">
-                        <div style="display:inline-block;width:60px;height:60px;line-height:60px;border-radius:50%;background-color:#e6f2f1;">
-                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
-                                <rect x="1" y="3" width="15" height="13"></rect>
-                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                                <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                                <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                            </svg>
+                        <div style="display:inline-block;width:60px;height:60px;line-height:60px;border-radius:50%;background-color:#e6f2f1;text-align:center;">
+                            <span style="font-size:28px;font-weight:700;color:#0f766e;">&#10003;</span>
                         </div>
                     </td>
                 </tr>
@@ -40,55 +35,39 @@
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                                style="border:1px solid #e2e6e4;border-left:4px solid #0f766e;border-radius:6px;overflow:hidden;">
                             <tr>
-                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
-                                        <line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line>
-                                        <line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line>
-                                    </svg>Request ID
-                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Request ID</td>
                                 <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${requestId}">REQ-789
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
-                                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-                                    </svg>Tank volume
-                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Tank volume</td>
                                 <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;">
                                     <span th:text="${tankVolumeLiters}">5000</span>&nbsp;liters
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
-                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                                        <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                    </svg>Urgency
-                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Urgency</td>
                                 <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${urgency}">STANDARD
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;white-space:nowrap;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
-                                        <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
-                                    </svg>Scheduled for
-                                </td>
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Scheduled for</td>
                                 <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${scheduledAt}">1 Jan 2026, 09:00
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;white-space:nowrap;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;">
-                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
-                                    </svg>Location
-                                </td>
-                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;text-align:right;"
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;border-bottom:1px solid #eef1f0;">Location</td>
+                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;border-bottom:1px solid #eef1f0;text-align:right;"
                                     th:text="${locationSummary}">Westlands, Nairobi
+                                </td>
+                            </tr>
+                            <tr th:if="${quotedPrice != null}">
+                                <td style="padding:13px 16px;font-size:13px;color:#6b7a75;">Quoted price</td>
+                                <td style="padding:13px 16px;font-size:13px;color:#1b4332;font-weight:600;text-align:right;">
+                                    <span th:text="${currency}">USD</span> <span th:text="${quotedPrice}">3000.00</span>
                                 </td>
                             </tr>
                         </table>
