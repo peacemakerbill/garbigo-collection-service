@@ -101,18 +101,27 @@ rate-limit:
   requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:60}
 
 scheduling:
-  # Standard Spring cron: second minute hour day-of-month month day-of-week.
-  # Evaluated in UTC. Set a job's cron to "-" to disable it.
+  # Job timing is plain numbers, not cron expressions. Times of day are UTC.
   recurring-requests:
-    cron: "${RECURRING_REQUESTS_CRON:0 0 6 * * *}"
+    # A once-a-day job (generates today's requests, reminds for tomorrow), so
+    # this is a time of day, not an interval - see RecurringScheduleRunner for
+    # why it can't safely run every few minutes.
+    run-at-hour-utc: ${RECURRING_REQUESTS_RUN_AT_HOUR_UTC:6}
+    run-at-minute-utc: ${RECURRING_REQUESTS_RUN_AT_MINUTE_UTC:0}
+    # Derived from the two numbers above - edit those, not this. Its own key so
+    # the @Scheduled annotation reads one plain placeholder rather than two
+    # embedded in a cron string (which IDE cron checkers can't resolve).
+    schedule: "0 ${scheduling.recurring-requests.run-at-minute-utc} ${scheduling.recurring-requests.run-at-hour-utc} * * *"
   user-directory-sync:
-    cron: "${USER_DIRECTORY_SYNC_CRON:0 0 * * * *}"
+    # Minutes between syncs, counted from the end of the previous one so a
+    # slow run never overlaps the next. Minimum 1 (startup fails below that).
+    interval-minutes: ${USER_DIRECTORY_SYNC_INTERVAL_MINUTES:10}
     # Also runs once immediately on startup by default - a pure upsert, so
     # there's no reason a fresh database should wait up to an hour before
     # any user's role is known.
     run-on-startup: ${USER_DIRECTORY_SYNC_ON_STARTUP:true}
     # How many times the startup attempt (only the startup one, not the
-    # cron) retries if auth-service/RabbitMQ aren't quite up yet when this
+    # regular interval) retries if auth-service/RabbitMQ aren't quite up yet when this
     # service boots, and how long to wait between tries.
     startup-retry-attempts: ${USER_DIRECTORY_SYNC_STARTUP_RETRY_ATTEMPTS:3}
     startup-retry-delay-seconds: ${USER_DIRECTORY_SYNC_STARTUP_RETRY_DELAY_SECONDS:5}

@@ -29,7 +29,7 @@ import java.util.List;
  * common case) costs nothing extra; a miss triggers one live directory
  * refresh from auth-service right then, so a brand-new deployment or an
  * account older than this service's own uptime self-heals on its very
- * first request instead of waiting on the hourly sync or a manual
+ * first request instead of waiting on the periodic sync or a manual
  * /users/resync call. Deliberately NOT a live call on every request:
  * this filter runs on every single request to this service, and the only
  * confirmed auth-service endpoint for this (GET /internal/users) is
@@ -39,7 +39,7 @@ import java.util.List;
  *
  * This still leaves one kind of staleness on the table: once a user IS
  * cached, a LATER role change on auth-service's side isn't picked up
- * until the next cache miss, the hourly resync, or a manual
+ * until the next cache miss, the next periodic resync, or a manual
  * /users/resync call - not truly instant for that case. If that gap
  * matters more than the request-cost tradeoff above, say so.
  */
@@ -73,6 +73,14 @@ public class JwtFilter extends OncePerRequestFilter {
                     authenticate(jwtUtil.extractUserId(claims));
                 }
             } catch (JwtException | IllegalArgumentException e) {
+                // Deliberately logs the exception type/message, not the token
+                // itself - e.g. "JwtException: JWT signature does not match
+                // locally computed signature" (JWT_SECRET mismatch between
+                // services) vs "ExpiredJwtException: JWT expired at ..." vs
+                // "MalformedJwtException" (often an empty/unresolved token
+                // variable in a REST client) - each points somewhere different.
+                log.warn("JWT validation failed on {} {}: {}: {}",
+                        request.getMethod(), request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
                 SecurityContextHolder.clearContext();
             }
         }

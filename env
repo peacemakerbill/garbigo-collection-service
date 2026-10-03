@@ -1,0 +1,72 @@
+# garbigo-collection-service - LOCAL environment, real values.
+# This file is gitignored - never commit it. It exists purely so the app
+# starts locally; replace the generated values below with real ones before
+# this matters for anything beyond your own machine.
+
+MONGODB_URI=mongodb://localhost:27017/garbigo_collection
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USERNAME=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_QUEUE_USER_CREATED=user-created-queue
+
+# Code-only alternative to purging queues via the RabbitMQ UI - see
+# QueuePurgeRunner. Leave false; flip to true for one restart only when you
+# actually need to drain user-created-queue, then set back to false.
+PURGE_QUEUES_ON_STARTUP=false
+
+# --- These four have NO default in application.yml - this is exactly what
+# crashed the startup you pasted (PlaceholderResolutionException on
+# ${JWT_SECRET}). Values below are randomly generated just so the app
+# boots; they won't do anything useful until you replace them for real.
+
+# Must be the IDENTICAL value auth-service's own .env uses, or every
+# signature check on an incoming token fails (tokens will parse as invalid,
+# not crash the app - this random value just lets JwtUtil construct itself).
+JWT_SECRET=epl5kA394-1jggZ97d7yiwQtZaAGzWfyo5GrZvksXiGLDeOHxWLGz3mWPUIQuLaSFu5zJlRbo55JSAlkl47dkA
+
+# Must be the IDENTICAL value auth-service's InternalApiKeyFilter expects,
+# or outgoing Feign calls to it get rejected (again, won't crash this app -
+# calls will just fail once WalletServiceClient/AuthServiceClient are used).
+INTERNAL_API_KEY=BphxROPhc2SuXlQsUEtRsatKEJ7_t8CIAk4FOesBvqs
+
+# Real SMTP creds - mail sending fails silently (logged, not thrown) until
+# these are real, per MailService's try/catch. Gmail needs an App Password
+# here, not your normal account password.
+MAIL_USERNAME=you@example.com
+MAIL_PASSWORD=changeme
+
+# --- Everything below already has a working default in application.yml -
+# only here so every var this service reads is visible in one place.
+AUTH_SERVICE_URL=http://localhost:8080
+WALLET_SERVICE_URL=http://localhost:8082
+
+APP_NAME=Garbigo
+APP_URL=http://localhost:3000
+SUPPORT_EMAIL=support@garbigo.com
+COMPANY_NAME=Garbigo Ltd
+COMPANY_ADDRESS=Nairobi, Kenya
+
+# How close to scheduledAt a client can still cancel (see collections.cancellation-cutoff-hours).
+CANCELLATION_CUTOFF_HOURS=2
+
+# Requests per minute per client IP before RateLimitFilter returns 429.
+RATE_LIMIT_REQUESTS_PER_MINUTE=60
+
+# Scheduler timing - plain numbers, not cron. Times of day are UTC.
+RECURRING_REQUESTS_RUN_AT_HOUR_UTC=6
+RECURRING_REQUESTS_RUN_AT_MINUTE_UTC=0
+USER_DIRECTORY_SYNC_INTERVAL_MINUTES=10
+USER_DIRECTORY_SYNC_ON_STARTUP=true
+USER_DIRECTORY_SYNC_STARTUP_RETRY_ATTEMPTS=3
+USER_DIRECTORY_SYNC_STARTUP_RETRY_DELAY_SECONDS=5
+
+# Currency passed to wallet-service on payment requests (WalletServiceClient - a
+# speculative contract, wallet-service is not designed yet).
+PAYMENTS_CURRENCY=USD
+
+SERVER_PORT=8081

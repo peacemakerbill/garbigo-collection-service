@@ -1,6 +1,7 @@
 package com.garbigo.collection.scheduling;
 
 import com.garbigo.collection.service.UserSummaryService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,11 +9,13 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Closes the staleness gap UserSummary's class docs flag: without this, a
  * role/active/archived change on an already-cached user is only ever seen
- * again on a cache miss. Runs on scheduling.user-directory-sync.cron
- * (default: hourly), AND once immediately on startup
+ * again on a cache miss. Runs every
+ * scheduling.user-directory-sync.interval-minutes (default: 10), AND once immediately on startup
  * (scheduling.user-directory-sync.run-on-startup, default true) - on a
  * fresh database, waiting for the first scheduled run means every login
  * gets zero role authorities (JwtFilter can't tell CLIENT from COLLECTOR
@@ -39,6 +42,9 @@ public class UserDirectorySyncRunner implements CommandLineRunner {
 
     private final UserSummaryService userSummaryService;
 
+    @Value("${scheduling.user-directory-sync.interval-minutes}")
+    private long intervalMinutes;
+
     @Value("${scheduling.user-directory-sync.run-on-startup}")
     private boolean runOnStartup;
 
@@ -48,6 +54,19 @@ public class UserDirectorySyncRunner implements CommandLineRunner {
     @Value("${scheduling.user-directory-sync.startup-retry-delay-seconds}")
     private long startupRetryDelaySeconds;
 
+    /**
+     * Fails startup on a nonsensical interval rather than letting it through:
+     * 0 would make fixedDelay re-run the sync back-to-back with no pause at
+     * all, hammering auth-service in a tight loop.
+     */
+    @PostConstruct
+    void validateInterval() {
+        if (intervalMinutes < 1) {
+            throw new IllegalStateException(
+                    "scheduling.user-directory-sync.interval-minutes must be at least 1 (was " + intervalMinutes + ")");
+        }
+    }
+
     @Override
     public void run(String... args) {
         if (runOnStartup) {
@@ -55,7 +74,15 @@ public class UserDirectorySyncRunner implements CommandLineRunner {
         }
     }
 
-    @Scheduled(cron = "${scheduling.user-directory-sync.cron}", zone = "UTC")
+    /**
+     * fixedDelay (not fixedRate): the interval counts from when the previous
+     * sync finished, so a slow one never overlaps the next. The first tick is
+     * one full interval after startup (initialDelay) because the startup run
+     * above already covers "now".
+     */
+    @Scheduled(fixedDelayString = "${scheduling.user-directory-sync.interval-minutes}",
+            initialDelayString = "${scheduling.user-directory-sync.interval-minutes}",
+            timeUnit = TimeUnit.MINUTES)
     public void scheduledRun() {
         sync("scheduled");
     }

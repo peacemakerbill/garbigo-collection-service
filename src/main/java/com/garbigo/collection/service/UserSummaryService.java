@@ -47,7 +47,7 @@ public class UserSummaryService {
     /**
      * Returns how many users were synced and logs it - a successful
      * refresh used to be completely silent, so a working sync (startup,
-     * hourly, cache-miss, or POST /users/resync) looked identical to one
+     * periodic, cache-miss, or POST /users/resync) looked identical to one
      * that did nothing.
      */
     public int refreshFromAuthService() {

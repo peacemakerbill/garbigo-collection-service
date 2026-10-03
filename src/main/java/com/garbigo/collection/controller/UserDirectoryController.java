@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Worth gating regardless: it triggers an unpaginated, full-directory
  * pull from auth-service, which any signed-in account could otherwise
  * hammer. Still not destructive - it's the same upsert-only sync the
- * hourly UserDirectorySyncRunner does - so ADMIN is about who gets to
+ * periodic UserDirectorySyncRunner does - so ADMIN is about who gets to
  * trigger it, not about what it exposes.
  */
 @RestController

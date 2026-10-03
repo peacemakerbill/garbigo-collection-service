@@ -90,20 +90,6 @@
       "defaultValue": 60
     },
     {
-      "name": "scheduling.recurring-requests.cron",
-      "type": "java.lang.String",
-      "description": "Spring cron (evaluated in UTC) for the job that generates requests from recurring schedules and sends day-before reminders. Set to \"-\" to disable.",
-      "sourceType": "com.garbigo.collection.scheduling.RecurringScheduleRunner",
-      "defaultValue": "0 0 6 * * *"
-    },
-    {
-      "name": "scheduling.user-directory-sync.cron",
-      "type": "java.lang.String",
-      "description": "Spring cron (evaluated in UTC) for the job that refreshes the local user cache from auth-service. Defaults to hourly. Set to \"-\" to disable.",
-      "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
-      "defaultValue": "0 0 * * * *"
-    },
-    {
       "name": "payments.currency",
       "type": "java.lang.String",
       "description": "Currency code passed to wallet-service on payment requests - WalletServiceClient's contract is speculative, wallet-service isn't designed yet.",
@@ -119,14 +105,14 @@
     {
       "name": "scheduling.user-directory-sync.run-on-startup",
       "type": "java.lang.Boolean",
-      "description": "Whether UserDirectorySyncRunner also runs once immediately on startup, in addition to its hourly cron. A pure upsert (never deletes), so true by default - a fresh database shouldn't have to wait for the first cron tick before any user's role is known.",
+      "description": "Whether UserDirectorySyncRunner also runs once immediately on startup, in addition to its regular interval. A pure upsert (never deletes), so true by default - a fresh database shouldn't have to wait for the first interval before any user's role is known.",
       "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
       "defaultValue": true
     },
     {
       "name": "scheduling.user-directory-sync.startup-retry-attempts",
       "type": "java.lang.Integer",
-      "description": "How many times the startup sync attempt retries if it fails (e.g. auth-service/RabbitMQ not up yet) before giving up until the next scheduled run. Only applies to the startup attempt, not the cron.",
+      "description": "How many times the startup sync attempt retries if it fails (e.g. auth-service/RabbitMQ not up yet) before giving up until the next scheduled run. Only applies to the startup attempt, not the regular interval.",
       "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
       "defaultValue": 3
     },
@@ -136,6 +122,34 @@
       "description": "Seconds to wait between startup sync retry attempts. Blocks application startup for up to (startup-retry-attempts - 1) * this value in the worst case - a deliberate, bounded tradeoff.",
       "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
       "defaultValue": 5
+    },
+    {
+      "name": "scheduling.user-directory-sync.interval-minutes",
+      "type": "java.lang.Long",
+      "description": "Minutes between user directory syncs from auth-service, counted from the end of the previous one. Minimum 1.",
+      "sourceType": "com.garbigo.collection.scheduling.UserDirectorySyncRunner",
+      "defaultValue": 10
+    },
+    {
+      "name": "scheduling.recurring-requests.run-at-hour-utc",
+      "type": "java.lang.Integer",
+      "description": "Hour of day (0-23, UTC) the once-a-day recurring-requests job runs. A time of day, not an interval: see RecurringScheduleRunner.",
+      "sourceType": "com.garbigo.collection.scheduling.RecurringScheduleRunner",
+      "defaultValue": 6
+    },
+    {
+      "name": "scheduling.recurring-requests.run-at-minute-utc",
+      "type": "java.lang.Integer",
+      "description": "Minute (0-59) of the hour, UTC, the once-a-day recurring-requests job runs.",
+      "sourceType": "com.garbigo.collection.scheduling.RecurringScheduleRunner",
+      "defaultValue": 0
+    },
+    {
+      "name": "scheduling.recurring-requests.schedule",
+      "type": "java.lang.String",
+      "description": "Derived cron (UTC) built from run-at-hour-utc and run-at-minute-utc - change those two, not this.",
+      "sourceType": "com.garbigo.collection.scheduling.RecurringScheduleRunner",
+      "defaultValue": "0 0 6 * * *"
     }
   ]
 }

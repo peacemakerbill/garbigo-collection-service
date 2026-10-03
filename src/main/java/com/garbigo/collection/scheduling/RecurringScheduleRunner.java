@@ -7,8 +7,10 @@ import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.RecurringScheduleRepository;
 import com.garbigo.collection.service.CollectionRequestService;
 import com.garbigo.collection.service.UserSummaryService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +24,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.stream.Collectors;
 
 /**
- * Runs on scheduling.recurring-requests.cron (default: daily at 06:00 UTC).
+ * Runs once a day at scheduling.recurring-requests.run-at-hour-utc : run-at-minute-utc
+ * (default 06:00 UTC). Deliberately a time of day, not an "every N minutes"
+ * interval like the user sync: this is a once-a-day job, and run more often
+ * it would re-send the same "tomorrow" reminder on every run (sendReminder has
+ * no already-sent guard), generate a request for a schedule created after
+ * its preferred time (already in the past), and fire right after midnight UTC
+ * instead of mid-morning.
+ *
  * For each active RecurringSchedule: generates a
  * CollectionRequest per waste type if today is due, or sends a reminder
  * email if tomorrow is due. "Due" uses a day-count threshold per frequency
@@ -43,7 +52,28 @@ public class RecurringScheduleRunner {
     private final UserSummaryService userSummaryService;
     private final MailService mailService;
 
-    @Scheduled(cron = "${scheduling.recurring-requests.cron}", zone = "UTC")
+    @Value("${scheduling.recurring-requests.run-at-hour-utc}")
+    private int runAtHourUtc;
+
+    @Value("${scheduling.recurring-requests.run-at-minute-utc}")
+    private int runAtMinuteUtc;
+
+    /** Fails startup with a clear message rather than a cryptic cron-parse error from Spring. */
+    @PostConstruct
+    void validateRunTime() {
+        if (runAtHourUtc < 0 || runAtHourUtc > 23) {
+            throw new IllegalStateException(
+                    "scheduling.recurring-requests.run-at-hour-utc must be 0-23 (was " + runAtHourUtc + ")");
+        }
+        if (runAtMinuteUtc < 0 || runAtMinuteUtc > 59) {
+            throw new IllegalStateException(
+                    "scheduling.recurring-requests.run-at-minute-utc must be 0-59 (was " + runAtMinuteUtc + ")");
+        }
+    }
+
+    // One plain placeholder; the cron itself is composed from the hour/minute
+    // numbers in application.yml (scheduling.recurring-requests.schedule).
+    @Scheduled(cron = "${scheduling.recurring-requests.schedule}", zone = "UTC")
     public void run() {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate tomorrow = today.plusDays(1);
