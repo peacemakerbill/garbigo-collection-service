@@ -2,6 +2,7 @@ package com.garbigo.collection.scheduling;
 
 import com.garbigo.collection.model.RecurringSchedule;
 import com.garbigo.collection.model.ScheduleFrequency;
+import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.model.WasteType;
 import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.RecurringScheduleRepository;
@@ -21,6 +22,8 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -75,21 +78,45 @@ public class RecurringScheduleRunner {
     // numbers in application.yml (scheduling.recurring-requests.schedule).
     @Scheduled(cron = "${scheduling.recurring-requests.schedule}", zone = "UTC")
     public void run() {
+        long startedAt = System.nanoTime();
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate tomorrow = today.plusDays(1);
 
-        for (RecurringSchedule schedule : recurringScheduleRepository.findByActiveTrue()) {
+        List<RecurringSchedule> schedules = recurringScheduleRepository.findByActiveTrue();
+        log.info("Recurring schedules run started for {} ({} active schedules)", today, schedules.size());
+
+        int schedulesGenerated = 0;
+        int requestsCreated = 0;
+        int remindersQueued = 0;
+        int failed = 0;
+
+        for (RecurringSchedule schedule : schedules) {
             try {
                 if (isDueOn(schedule, today)) {
-                    generateRequests(schedule, today);
+                    int created = generateRequests(schedule, today);
+                    schedulesGenerated++;
+                    requestsCreated += created;
+                    log.info("Generated {} request(s) from recurring schedule {} (client {}) for {}",
+                            created, schedule.getId(), schedule.getClientId(), today);
                 } else if (isDueOn(schedule, tomorrow)) {
-                    sendReminder(schedule, tomorrow);
+                    if (sendReminder(schedule, tomorrow)) {
+                        remindersQueued++;
+                        log.info("Queued pickup reminder for recurring schedule {} (client {}) due {}",
+                                schedule.getId(), schedule.getClientId(), tomorrow);
+                    } else {
+                        log.warn("No reminder sent for recurring schedule {}: client {} not found in the user cache",
+                                schedule.getId(), schedule.getClientId());
+                    }
                 }
             } catch (Exception e) {
                 // One bad schedule shouldn't stop the rest of the run.
+                failed++;
                 log.warn("Failed to process recurring schedule {}: {}", schedule.getId(), e.getMessage());
             }
         }
+
+        log.info("Recurring schedules run finished in {} ms: {} generated ({} requests), {} reminders queued, {} failed",
+                (System.nanoTime() - startedAt) / 1_000_000, schedulesGenerated, requestsCreated, remindersQueued, failed);
     }
 
     private boolean isDueOn(RecurringSchedule schedule, LocalDate date) {
@@ -112,7 +139,8 @@ public class RecurringScheduleRunner {
         return daysSinceLast >= minGapDays;
     }
 
-    private void generateRequests(RecurringSchedule schedule, LocalDate date) {
+    /** Returns how many requests were created (one per waste type on the schedule). */
+    private int generateRequests(RecurringSchedule schedule, LocalDate date) {
         Instant scheduledAt = date.atTime(preferredTime(schedule)).toInstant(ZoneOffset.UTC);
         String notes = "Auto-generated from recurring schedule " + schedule.getId();
 
@@ -123,25 +151,37 @@ public class RecurringScheduleRunner {
 
         schedule.setLastGeneratedAt(Instant.now());
         recurringScheduleRepository.save(schedule);
+        return schedule.getWasteTypes().size();
     }
 
-    private void sendReminder(RecurringSchedule schedule, LocalDate date) {
-        userSummaryService.findById(schedule.getClientId()).ifPresent(client -> {
-            String scheduledAtDisplay = DISPLAY_FORMAT.format(date.atTime(preferredTime(schedule)));
-            String locationSummary = schedule.getLocation() == null
-                    ? "TBD"
-                    : String.join(", ", schedule.getLocation().getLocationName(), schedule.getLocation().getAddress());
-            String wasteTypesDisplay = schedule.getWasteTypes().stream().map(Enum::name).collect(Collectors.joining(", "));
+    /**
+     * Returns false if the client isn't in the user cache, so the caller can
+     * log it - that used to silently send nothing. True means the email was
+     * handed to MailService, which sends asynchronously: a later SMTP failure
+     * shows up as its own 'Failed to send' warning, not here.
+     */
+    private boolean sendReminder(RecurringSchedule schedule, LocalDate date) {
+        Optional<UserSummary> found = userSummaryService.findById(schedule.getClientId());
+        if (found.isEmpty()) {
+            return false;
+        }
+        UserSummary client = found.get();
 
-            mailService.sendUpcomingPickupReminder(
-                    client.getEmail(),
-                    client.preferredName(),
-                    "schedule-" + schedule.getId(),
-                    wasteTypesDisplay,
-                    scheduledAtDisplay,
-                    locationSummary
-            );
-        });
+        String scheduledAtDisplay = DISPLAY_FORMAT.format(date.atTime(preferredTime(schedule)));
+        String locationSummary = schedule.getLocation() == null
+                ? "TBD"
+                : String.join(", ", schedule.getLocation().getLocationName(), schedule.getLocation().getAddress());
+        String wasteTypesDisplay = schedule.getWasteTypes().stream().map(Enum::name).collect(Collectors.joining(", "));
+
+        mailService.sendUpcomingPickupReminder(
+                client.getEmail(),
+                client.preferredName(),
+                "schedule-" + schedule.getId(),
+                wasteTypesDisplay,
+                scheduledAtDisplay,
+                locationSummary
+        );
+        return true;
     }
 
     private LocalTime preferredTime(RecurringSchedule schedule) {

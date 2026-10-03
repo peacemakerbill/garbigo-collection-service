@@ -88,12 +88,12 @@ public class UserDirectorySyncRunner implements CommandLineRunner {
     }
 
     private void syncWithRetries() {
+        long startedAt = System.nanoTime();
         for (int attempt = 1; attempt <= startupRetryAttempts; attempt++) {
             try {
                 userSummaryService.refreshFromAuthService();
-                if (attempt > 1) {
-                    log.info("User directory sync (startup) succeeded on attempt {}/{}", attempt, startupRetryAttempts);
-                }
+                log.info("User directory sync (startup) completed in {} ms (attempt {}/{})",
+                        elapsedMillis(startedAt), attempt, startupRetryAttempts);
                 return;
             } catch (Exception e) {
                 boolean lastAttempt = attempt == startupRetryAttempts;
@@ -109,6 +109,10 @@ public class UserDirectorySyncRunner implements CommandLineRunner {
         }
     }
 
+    private long elapsedMillis(long startedAtNanos) {
+        return (System.nanoTime() - startedAtNanos) / 1_000_000;
+    }
+
     private void sleep(long seconds) {
         try {
             Thread.sleep(seconds * 1000L);
@@ -118,8 +122,10 @@ public class UserDirectorySyncRunner implements CommandLineRunner {
     }
 
     private void sync(String trigger) {
+        long startedAt = System.nanoTime();
         try {
             userSummaryService.refreshFromAuthService();
+            log.info("User directory sync ({}) completed in {} ms", trigger, elapsedMillis(startedAt));
         } catch (Exception e) {
             log.warn("User directory sync ({}) failed, will retry on the next run: {}", trigger, e.getMessage());
         }
