@@ -6,11 +6,13 @@ import com.garbigo.collection.repository.UserSummaryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -26,7 +28,42 @@ public class UserSummaryService {
     }
 
     public UserSummary upsert(UserSummary userSummary) {
+        userSummaryRepository.findById(userSummary.getId())
+                .ifPresent(existing -> keepOptionalFieldsIfMissing(userSummary, existing));
         return userSummaryRepository.save(userSummary);
+    }
+
+    /** Bulk version of upsert: one read and one write for the whole batch instead of a read and a write per user. */
+    public void upsertAll(Collection<UserSummary> users) {
+        if (users == null || users.isEmpty()) {
+            return;
+        }
+        Map<String, UserSummary> existing = findAllByIds(
+                users.stream().map(UserSummary::getId).filter(Objects::nonNull).toList());
+        for (UserSummary user : users) {
+            UserSummary previous = existing.get(user.getId());
+            if (previous != null) {
+                keepOptionalFieldsIfMissing(user, previous);
+            }
+        }
+        userSummaryRepository.saveAll(users);
+    }
+
+    /**
+     * Saving replaces the whole document, so without this a sync whose payload
+     * doesn't carry phoneNumber or profilePictureUrl (an event, or a directory
+     * response that lacks them) would blank values an earlier path had stored.
+     * The cost: if auth-service ever sends these as explicitly cleared, the old
+     * value is kept - once it's confirmed GET /internal/users always includes
+     * them, drop this and let the incoming value win.
+     */
+    private void keepOptionalFieldsIfMissing(UserSummary incoming, UserSummary existing) {
+        if (!StringUtils.hasText(incoming.getPhoneNumber())) {
+            incoming.setPhoneNumber(existing.getPhoneNumber());
+        }
+        if (!StringUtils.hasText(incoming.getProfilePictureUrl())) {
+            incoming.setProfilePictureUrl(existing.getProfilePictureUrl());
+        }
     }
 
     /**
@@ -58,7 +95,7 @@ public class UserSummaryService {
         if (users == null) {
             users = List.of();
         }
-        userSummaryRepository.saveAll(users);
+        upsertAll(users);
         log.info("User directory refreshed from auth-service: {} users", users.size());
         return users.size();
     }

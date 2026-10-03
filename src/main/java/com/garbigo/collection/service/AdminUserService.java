@@ -55,6 +55,7 @@ public class AdminUserService {
             String contains = Pattern.quote(q.trim());
             query.addCriteria(new Criteria().orOperator(
                     Criteria.where("email").regex(contains, "i"),
+                    Criteria.where("phoneNumber").regex(contains, "i"),
                     Criteria.where("username").regex(contains, "i"),
                     Criteria.where("firstName").regex(contains, "i"),
                     Criteria.where("middleName").regex(contains, "i"),
@@ -103,6 +104,8 @@ public class AdminUserService {
                 .username(user.getUsername())
                 .name(user.preferredName())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .profilePictureUrl(user.getProfilePictureUrl())
                 .role(user.getRole())
                 .active(user.isActive())
                 .archived(user.isArchived())

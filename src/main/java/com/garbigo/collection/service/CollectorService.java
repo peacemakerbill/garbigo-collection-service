@@ -71,7 +71,7 @@ public class CollectorService {
 
     private List<UserSummary> activeCollectors() {
         List<UserSummary> users = authServiceClient.getAllUsers();
-        users.forEach(userSummaryService::upsert);
+        userSummaryService.upsertAll(users);
 
         return users.stream()
                 .filter(user -> COLLECTOR_ROLE.equalsIgnoreCase(user.getRole())

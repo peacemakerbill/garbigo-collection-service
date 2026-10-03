@@ -16,6 +16,11 @@ public class AdminUserResponse {
     private String username;
     private String name;
     private String email;
+
+    /** Null until auth-service sends them - see UserSummary. */
+    private String phoneNumber;
+    private String profilePictureUrl;
+
     private String role;
     private boolean active;
     private boolean archived;

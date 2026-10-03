@@ -28,7 +28,7 @@ public class AdminUserController {
 
     private final AdminUserService adminUserService;
 
-    /** q matches a substring of email, username or any name part. */
+    /** q matches a substring of email, phone number, username or any name part. */
     @GetMapping
     public ResponseEntity<Page<AdminUserResponse>> search(
             @RequestParam(required = false) String role,

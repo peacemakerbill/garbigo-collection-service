@@ -30,6 +30,8 @@ public class UserCreatedEventListener {
                 .middleName(event.path("middleName").asString(null))
                 .lastName(event.path("lastName").asString(null))
                 .email(event.get("email").asString())
+                .phoneNumber(event.path("phoneNumber").asString(null))
+                .profilePictureUrl(event.path("profilePictureUrl").asString(null))
                 .role(event.get("role").asString())
                 .active(event.path("active").asBoolean(true))
                 .archived(event.path("archived").asBoolean(false))
