@@ -5,6 +5,7 @@ import feign.RetryableException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -13,14 +14,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -72,6 +76,31 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new MessageResponse(accessDeniedMessage(currentRoles, requiredRoles)));
+    }
+
+    /**
+     * A URL that matches no endpoint. Without this, it fell through to the
+     * catch-all below and came back as a 500 "something went wrong on our
+     * end" (plus a stack trace in the log) - which reads like a server bug
+     * when it's really a wrong path.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<MessageResponse> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(
+                "No endpoint at " + request.getMethod() + " " + request.getRequestURI()
+                        + " - check the URL and HTTP method."));
+    }
+
+    /** Right path, wrong HTTP method (e.g. POST to a PUT endpoint) - same catch-all problem as above. */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<MessageResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        Set<HttpMethod> supported = ex.getSupportedHttpMethods();
+        String allowed = (supported == null || supported.isEmpty())
+                ? ""
+                : " Supported: " + supported.stream().map(HttpMethod::name).sorted().collect(Collectors.joining(", ")) + ".";
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(new MessageResponse(
+                request.getMethod() + " isn't supported on " + request.getRequestURI() + "." + allowed));
     }
 
     // Feign throws this specifically for connection failures (a downstream

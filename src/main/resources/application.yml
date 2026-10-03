@@ -24,6 +24,15 @@ spring:
       # scan checks them too before correctly concluding none are its.
       repositories:
         enabled: false
+    web:
+      pageable:
+        # Serialize Page<T> responses as Spring Data's stable PagedModel
+        # shape ({content, page: {size, number, totalElements, totalPages}})
+        # instead of the PageImpl internals, which Spring Data warns
+        # aren't guaranteed stable across versions. Set via this property
+        # rather than @EnableSpringDataWebSupport(pageSerializationMode =
+        # VIA_DTO), which makes Boot ignore spring.data.web.pageable.*.
+        serialization-mode: via-dto
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
