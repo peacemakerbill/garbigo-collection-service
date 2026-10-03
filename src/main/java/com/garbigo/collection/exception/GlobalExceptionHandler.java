@@ -32,6 +32,11 @@ public class GlobalExceptionHandler {
     private static final String ROLE_PREFIX = "ROLE_";
     private static final Pattern QUOTED_VALUE = Pattern.compile("'([^']+)'");
 
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<MessageResponse> handleNotFound(NotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(ex.getMessage()));
+    }
+
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<MessageResponse> handleCustomException(CustomException ex) {
         return ResponseEntity.badRequest().body(new MessageResponse(ex.getMessage()));

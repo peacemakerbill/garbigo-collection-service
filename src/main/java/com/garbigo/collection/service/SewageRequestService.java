@@ -6,6 +6,7 @@ import com.garbigo.collection.dto.SewageRequestResponse;
 import com.garbigo.collection.dto.WalletPaymentRequest;
 import com.garbigo.collection.dto.WalletPaymentResult;
 import com.garbigo.collection.exception.CustomException;
+import com.garbigo.collection.exception.NotFoundException;
 import com.garbigo.collection.model.CollectionStatus;
 import com.garbigo.collection.model.Location;
 import com.garbigo.collection.model.PaymentStatus;
@@ -27,6 +28,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.time.temporal.ChronoUnit;
+import java.util.Set;
 
 /** Sewage/exhauster requests - same lifecycle as CollectionRequestService, different domain fields. */
 @Service
@@ -71,8 +73,26 @@ public class SewageRequestService {
         return toResponse(saved);
     }
 
-    public SewageRequestResponse getById(String id) {
-        return toResponse(findOrThrow(id));
+    /**
+     * Visible to: the client who made it, the collector it's assigned to,
+     * and ADMIN/SUPPORT. Unlike collections there's no nearby-jobs listing
+     * for sewage, so an unassigned collector has no way to have discovered
+     * one and no reason to read it. Anyone else gets the same 404 a
+     * nonexistent ID gets, so this can't be used to probe which IDs exist.
+     */
+    public SewageRequestResponse getById(String id, String callerId, Set<String> callerRoles) {
+        SewageRequest request = findOrThrow(id);
+        if (!canView(request, callerId, callerRoles)) {
+            throw new NotFoundException("Sewage request not found: " + id);
+        }
+        return toResponse(request);
+    }
+
+    private boolean canView(SewageRequest request, String callerId, Set<String> callerRoles) {
+        if (callerRoles.contains("ADMIN") || callerRoles.contains("SUPPORT")) {
+            return true;
+        }
+        return callerId.equals(request.getClientId()) || callerId.equals(request.getCollectorId());
     }
 
     public Page<SewageRequestResponse> getMine(String clientId, Pageable pageable) {
@@ -211,7 +231,7 @@ public class SewageRequestService {
 
     private SewageRequest findOrThrow(String id) {
         return sewageRequestRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Sewage request not found: " + id));
+                .orElseThrow(() -> new NotFoundException("Sewage request not found: " + id));
     }
 
     private Location resolveLocation(String clientId, String savedLocationId, com.garbigo.collection.dto.LocationRequest inline) {

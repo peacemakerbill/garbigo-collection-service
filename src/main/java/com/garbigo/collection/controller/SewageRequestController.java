@@ -3,6 +3,7 @@ package com.garbigo.collection.controller;
 import com.garbigo.collection.dto.SewageRequestCreateRequest;
 import com.garbigo.collection.dto.SewageRequestResponse;
 import com.garbigo.collection.model.CollectionStatus;
+import com.garbigo.collection.security.CallerRoles;
 import com.garbigo.collection.service.SewageRequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,8 +43,8 @@ public class SewageRequestController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SewageRequestResponse> getById(@PathVariable String id) {
-        return ResponseEntity.ok(sewageRequestService.getById(id));
+    public ResponseEntity<SewageRequestResponse> getById(Authentication authentication, @PathVariable String id) {
+        return ResponseEntity.ok(sewageRequestService.getById(id, authentication.getName(), CallerRoles.of(authentication)));
     }
 
     @GetMapping("/mine")

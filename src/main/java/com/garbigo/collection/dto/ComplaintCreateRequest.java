@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ComplaintCreateRequest {
 
-    @NotNull
+    @NotBlank
     private String collectionRequestId;
 
     @NotNull

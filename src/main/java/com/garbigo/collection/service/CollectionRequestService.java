@@ -6,6 +6,7 @@ import com.garbigo.collection.dto.CollectionRequestResponse;
 import com.garbigo.collection.dto.WalletPaymentRequest;
 import com.garbigo.collection.dto.WalletPaymentResult;
 import com.garbigo.collection.exception.CustomException;
+import com.garbigo.collection.exception.NotFoundException;
 import com.garbigo.collection.model.CollectionRequest;
 import com.garbigo.collection.model.CollectionStatus;
 import com.garbigo.collection.model.Location;
@@ -32,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -82,8 +84,29 @@ public class CollectionRequestService {
         return toResponse(saved);
     }
 
-    public CollectionRequestResponse getById(String id) {
-        return toResponse(findOrThrow(id));
+    /**
+     * Visible to: the client who made it, the collector it's assigned to,
+     * ADMIN/SUPPORT, and - while it's still PENDING - any COLLECTOR, since
+     * GET /collections/nearby already shows PENDING requests to every
+     * collector. Anyone else gets the same 404 a nonexistent ID gets, so
+     * this can't be used to probe which IDs exist.
+     */
+    public CollectionRequestResponse getById(String id, String callerId, Set<String> callerRoles) {
+        CollectionRequest request = findOrThrow(id);
+        if (!canView(request, callerId, callerRoles)) {
+            throw new NotFoundException("Collection request not found: " + id);
+        }
+        return toResponse(request);
+    }
+
+    private boolean canView(CollectionRequest request, String callerId, Set<String> callerRoles) {
+        if (callerRoles.contains("ADMIN") || callerRoles.contains("SUPPORT")) {
+            return true;
+        }
+        if (callerId.equals(request.getClientId()) || callerId.equals(request.getCollectorId())) {
+            return true;
+        }
+        return callerRoles.contains(COLLECTOR_ROLE) && request.getStatus() == CollectionStatus.PENDING;
     }
 
     /** Used by RecurringScheduleRunner - bypasses the DTO/@Future validation since this is server-generated. */
@@ -280,7 +303,7 @@ public class CollectionRequestService {
 
     private CollectionRequest findOrThrow(String id) {
         return collectionRequestRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Collection request not found: " + id));
+                .orElseThrow(() -> new NotFoundException("Collection request not found: " + id));
     }
 
     private Location resolveLocation(String clientId, String savedLocationId, com.garbigo.collection.dto.LocationRequest inline) {

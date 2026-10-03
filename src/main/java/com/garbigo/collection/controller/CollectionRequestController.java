@@ -5,6 +5,7 @@ import com.garbigo.collection.dto.CollectionRequestResponse;
 import com.garbigo.collection.dto.RatingCreateRequest;
 import com.garbigo.collection.dto.RatingResponse;
 import com.garbigo.collection.model.CollectionStatus;
+import com.garbigo.collection.security.CallerRoles;
 import com.garbigo.collection.service.CollectionRequestService;
 import com.garbigo.collection.service.RatingService;
 import jakarta.validation.Valid;
@@ -47,8 +48,8 @@ public class CollectionRequestController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CollectionRequestResponse> getById(@PathVariable String id) {
-        return ResponseEntity.ok(collectionRequestService.getById(id));
+    public ResponseEntity<CollectionRequestResponse> getById(Authentication authentication, @PathVariable String id) {
+        return ResponseEntity.ok(collectionRequestService.getById(id, authentication.getName(), CallerRoles.of(authentication)));
     }
 
     @GetMapping("/mine")

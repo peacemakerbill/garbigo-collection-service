@@ -21,8 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * POST/GET-mine are open to any authenticated user; resolve is restricted
- * to ADMIN/SUPPORT.
+ * Filing a complaint is for the two parties to a request (CLIENT or
+ * COLLECTOR) - the service additionally checks the caller is actually a
+ * party to the specific request. GET-mine is scoped to the caller's own
+ * complaints; resolve is restricted to ADMIN/SUPPORT.
  */
 @RestController
 @RequestMapping("/api/v1/complaints")
@@ -32,6 +34,7 @@ public class ComplaintController {
     private final ComplaintService complaintService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CLIENT', 'COLLECTOR')")
     public ResponseEntity<ComplaintResponse> create(
             Authentication authentication,
             @Valid @RequestBody ComplaintCreateRequest request) {

@@ -3,10 +3,12 @@ package com.garbigo.collection.service;
 import com.garbigo.collection.dto.ComplaintCreateRequest;
 import com.garbigo.collection.dto.ComplaintResponse;
 import com.garbigo.collection.exception.CustomException;
+import com.garbigo.collection.exception.NotFoundException;
 import com.garbigo.collection.model.Complaint;
 import com.garbigo.collection.model.ComplaintStatus;
 import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.notification.MailService;
+import com.garbigo.collection.repository.CollectionRequestRepository;
 import com.garbigo.collection.repository.ComplaintRepository;
 import feign.RetryableException;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +23,23 @@ import org.springframework.stereotype.Service;
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
+    private final CollectionRequestRepository collectionRequestRepository;
     private final UserSummaryService userSummaryService;
     private final MailService mailService;
 
+    /**
+     * The reporter has to be a party to the request they're complaining
+     * about - the client who made it, or the collector it's assigned to.
+     * Otherwise anyone could file complaints against any request ID, real
+     * or invented. A request that doesn't exist and one the reporter has
+     * no part in get the same 404, so this can't be used to probe which
+     * IDs exist (same rule as getById on the requests themselves).
+     */
     public ComplaintResponse create(String reporterId, ComplaintCreateRequest request) {
+        collectionRequestRepository.findById(request.getCollectionRequestId())
+                .filter(target -> reporterId.equals(target.getClientId()) || reporterId.equals(target.getCollectorId()))
+                .orElseThrow(() -> new NotFoundException("Collection request not found: " + request.getCollectionRequestId()));
+
         Complaint saved = complaintRepository.save(
                 Complaint.builder()
                         .collectionRequestId(request.getCollectionRequestId())
@@ -42,9 +57,17 @@ public class ComplaintService {
                 .map(this::toResponse);
     }
 
+    /**
+     * Rejects an already-resolved complaint rather than quietly re-resolving
+     * it - each resolve sends the reporter an email, so a repeat call
+     * (double-click, retried request) would otherwise email them again.
+     */
     public ComplaintResponse resolve(String id) {
         Complaint existing = complaintRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Complaint not found: " + id));
+                .orElseThrow(() -> new NotFoundException("Complaint not found: " + id));
+        if (existing.getStatus() == ComplaintStatus.RESOLVED) {
+            throw new CustomException("This complaint is already resolved");
+        }
         existing.setStatus(ComplaintStatus.RESOLVED);
         Complaint saved = complaintRepository.save(existing);
         notifyReporterOfResolution(saved);
