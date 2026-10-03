@@ -5,6 +5,7 @@ import com.garbigo.collection.dto.ComplaintResponse;
 import com.garbigo.collection.exception.CustomException;
 import com.garbigo.collection.exception.NotFoundException;
 import com.garbigo.collection.model.Complaint;
+import com.garbigo.collection.model.ComplaintCategory;
 import com.garbigo.collection.model.ComplaintStatus;
 import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.notification.MailService;
@@ -14,8 +15,18 @@ import feign.RetryableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +37,7 @@ public class ComplaintService {
     private final CollectionRequestRepository collectionRequestRepository;
     private final UserSummaryService userSummaryService;
     private final MailService mailService;
+    private final MongoTemplate mongoTemplate;
 
     /**
      * The reporter has to be a party to the request they're complaining
@@ -74,6 +86,70 @@ public class ComplaintService {
         return toResponse(saved);
     }
 
+    // ------------------------------------------------------------------
+    // Admin operations (see AdminComplaintController).
+    // ------------------------------------------------------------------
+
+    public Page<ComplaintResponse> adminSearch(
+            ComplaintStatus status, ComplaintCategory category, String reporterId, String collectionRequestId, Pageable pageable) {
+        Query query = new Query();
+        if (status != null) {
+            query.addCriteria(Criteria.where("status").is(status));
+        }
+        if (category != null) {
+            query.addCriteria(Criteria.where("category").is(category));
+        }
+        if (StringUtils.hasText(reporterId)) {
+            query.addCriteria(Criteria.where("reporterId").is(reporterId.trim()));
+        }
+        if (StringUtils.hasText(collectionRequestId)) {
+            query.addCriteria(Criteria.where("collectionRequestId").is(collectionRequestId.trim()));
+        }
+
+        long total = mongoTemplate.count(query, Complaint.class);
+        List<Complaint> found = mongoTemplate.find(query.with(pageable), Complaint.class);
+
+        // Reporter names for the whole page in one query, from the cache - not a
+        // resolve() per row, which could trigger a full auth-service refresh per
+        // unknown reporter.
+        Map<String, UserSummary> reporters = userSummaryService.findAllByIds(
+                found.stream().map(Complaint::getReporterId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        List<ComplaintResponse> content = found.stream()
+                .map(complaint -> toResponse(complaint, reporters.get(complaint.getReporterId())))
+                .collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, total);
+    }
+
+    public ComplaintResponse adminGet(String id) {
+        return toResponse(findOrThrow(id));
+    }
+
+    /**
+     * RESOLVED goes through resolve() so the reporter gets their email and a
+     * repeat is rejected; OPEN and IN_REVIEW just move the status, which also
+     * lets an admin reopen a complaint that was resolved by mistake.
+     */
+    public ComplaintResponse adminSetStatus(String adminId, String id, ComplaintStatus newStatus) {
+        if (newStatus == ComplaintStatus.RESOLVED) {
+            log.info("Admin {} is resolving complaint {}", adminId, id);
+            return resolve(id);
+        }
+        Complaint existing = findOrThrow(id);
+        if (existing.getStatus() == newStatus) {
+            throw new CustomException("This complaint is already " + newStatus);
+        }
+        ComplaintStatus previous = existing.getStatus();
+        existing.setStatus(newStatus);
+        Complaint saved = complaintRepository.save(existing);
+        log.info("Admin {} changed complaint {} status {} -> {}", adminId, id, previous, newStatus);
+        return toResponse(saved);
+    }
+
+    private Complaint findOrThrow(String id) {
+        return complaintRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Complaint not found: " + id));
+    }
+
     private void notifyReporterOfResolution(Complaint complaint) {
         userSummaryService.findById(complaint.getReporterId()).ifPresent(reporter ->
                 mailService.sendComplaintResolved(
@@ -86,8 +162,10 @@ public class ComplaintService {
     }
 
     private ComplaintResponse toResponse(Complaint entity) {
-        UserSummary reporter = resolveReporterSummary(entity.getReporterId());
+        return toResponse(entity, resolveReporterSummary(entity.getReporterId()));
+    }
 
+    private ComplaintResponse toResponse(Complaint entity, UserSummary reporter) {
         return ComplaintResponse.builder()
                 .id(entity.getId())
                 .collectionRequestId(entity.getCollectionRequestId())

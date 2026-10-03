@@ -7,7 +7,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -63,5 +66,24 @@ public class UserSummaryService {
     /** Count from the local cache, not a live auth-service call - used by AdminStatsService. */
     public long countCachedCollectors() {
         return userSummaryRepository.countByRoleIgnoreCase("COLLECTOR");
+    }
+
+    public long countCachedClients() {
+        return userSummaryRepository.countByRoleIgnoreCase("CLIENT");
+    }
+
+    /**
+     * One query for many users, keyed by id - for listings that need names
+     * without a lookup per row. Cache-only on purpose: unlike resolve(), a
+     * miss doesn't trigger a full directory refresh from auth-service, which
+     * a page of rows with several unknown users would otherwise repeat.
+     */
+    public Map<String, UserSummary> findAllByIds(Collection<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, UserSummary> byId = new HashMap<>();
+        userSummaryRepository.findAllById(userIds).forEach(user -> byId.put(user.getId(), user));
+        return byId;
     }
 }
