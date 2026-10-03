@@ -4,24 +4,24 @@ import com.garbigo.collection.dto.MessageResponse;
 import com.garbigo.collection.service.UserSummaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Deliberately requires only a valid JWT (SecurityConfig's default
- * .anyRequest().authenticated()) - no specific role, and no @PreAuthorize
- * here at all. That's not an oversight: this exists to fix the exact
- * situation where it would otherwise be needed. A user whose role was
- * never cached (fresh deployment, or an account older than
- * collection-service's own uptime) gets authenticated by JwtFilter but
- * with zero granted authorities, so every role-gated endpoint - including
- * an admin-only one - would 403 them. Authentication alone (no authority
- * check) is enough to call this, which is what breaks the circularity.
+ * ADMIN only. This used to require just a valid JWT, on purpose: a user
+ * whose role was never cached had zero authorities, so a role-gated resync
+ * would have locked out exactly the person who needed it to fix that. That
+ * reason is gone - JwtFilter now refreshes the cache on a miss
+ * (UserSummaryService.resolve) before the controller runs, so by the time
+ * this check happens an admin's role has already been resolved.
  *
- * Not destructive or sensitive - just re-runs the same full directory
- * pull UserDirectorySyncRunner already does hourly, on demand instead of
- * waiting for the clock.
+ * Worth gating regardless: it triggers an unpaginated, full-directory
+ * pull from auth-service, which any signed-in account could otherwise
+ * hammer. Still not destructive - it's the same upsert-only sync the
+ * hourly UserDirectorySyncRunner does - so ADMIN is about who gets to
+ * trigger it, not about what it exposes.
  */
 @RestController
 @RequestMapping("/api/v1/users")
@@ -31,6 +31,7 @@ public class UserDirectoryController {
     private final UserSummaryService userSummaryService;
 
     @PostMapping("/resync")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> resync() {
         int synced = userSummaryService.refreshFromAuthService();
         return ResponseEntity.ok(new MessageResponse("Synced " + synced + " users from auth-service"));
