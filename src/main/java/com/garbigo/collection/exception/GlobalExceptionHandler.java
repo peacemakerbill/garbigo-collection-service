@@ -108,7 +108,11 @@ public class GlobalExceptionHandler {
     // returned - that distinction is what keeps this from also swallowing
     // real 404s/etc. Covers both auth-service and wallet-service now.
     @ExceptionHandler(RetryableException.class)
-    public ResponseEntity<MessageResponse> handleServiceUnavailable(RetryableException ex) {
+    public ResponseEntity<MessageResponse> handleServiceUnavailable(RetryableException ex, HttpServletRequest request) {
+        // The 503 body is deliberately generic; this is where the real cause
+        // (which service, what URL, connection refused vs timeout) goes.
+        log.warn("Downstream service unreachable on {} {}: {}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new MessageResponse("A required service is temporarily unavailable. Please try again in a moment."));
     }

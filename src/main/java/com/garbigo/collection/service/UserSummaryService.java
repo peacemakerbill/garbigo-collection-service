@@ -4,12 +4,15 @@ import com.garbigo.collection.client.AuthServiceClient;
 import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.repository.UserSummaryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserSummaryService {
 
     private final UserSummaryRepository userSummaryRepository;
@@ -41,8 +44,20 @@ public class UserSummaryService {
         return findById(userId);
     }
 
-    public void refreshFromAuthService() {
-        userSummaryRepository.saveAll(authServiceClient.getAllUsers());
+    /**
+     * Returns how many users were synced and logs it - a successful
+     * refresh used to be completely silent, so a working sync (startup,
+     * hourly, cache-miss, or POST /users/resync) looked identical to one
+     * that did nothing.
+     */
+    public int refreshFromAuthService() {
+        List<UserSummary> users = authServiceClient.getAllUsers();
+        if (users == null) {
+            users = List.of();
+        }
+        userSummaryRepository.saveAll(users);
+        log.info("User directory refreshed from auth-service: {} users", users.size());
+        return users.size();
     }
 
     /** Count from the local cache, not a live auth-service call - used by AdminStatsService. */

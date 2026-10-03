@@ -1,5 +1,6 @@
 package com.garbigo.collection.controller;
 
+import com.garbigo.collection.dto.MessageResponse;
 import com.garbigo.collection.service.UserSummaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,8 +31,8 @@ public class UserDirectoryController {
     private final UserSummaryService userSummaryService;
 
     @PostMapping("/resync")
-    public ResponseEntity<Void> resync() {
-        userSummaryService.refreshFromAuthService();
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<MessageResponse> resync() {
+        int synced = userSummaryService.refreshFromAuthService();
+        return ResponseEntity.ok(new MessageResponse("Synced " + synced + " users from auth-service"));
     }
 }
