@@ -3,7 +3,9 @@ package com.garbigo.collection.service;
 import com.garbigo.collection.client.WalletServiceClient;
 import com.garbigo.collection.dto.AdminRequestFilter;
 import com.garbigo.collection.dto.SewageRequestCreateRequest;
+import com.garbigo.collection.dto.MyRequestFilter;
 import com.garbigo.collection.dto.SewageRequestResponse;
+import com.garbigo.collection.dto.SewageRequestUpdateRequest;
 import com.garbigo.collection.dto.WalletPaymentRequest;
 import com.garbigo.collection.dto.WalletPaymentResult;
 import com.garbigo.collection.exception.CustomException;
@@ -17,7 +19,9 @@ import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.SewageRequestRepository;
 import com.garbigo.collection.util.AdminQueries;
+import com.garbigo.collection.util.JobStatusRules;
 import com.garbigo.collection.util.LocationMapper;
+import com.garbigo.collection.util.RequestQueries;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +29,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -107,12 +113,20 @@ public class SewageRequestService {
         return callerId.equals(request.getClientId()) || callerId.equals(request.getCollectorId());
     }
 
-    public Page<SewageRequestResponse> getMine(String clientId, Pageable pageable) {
-        return sewageRequestRepository.findByClientId(clientId, pageable).map(this::toResponse);
+    public Page<SewageRequestResponse> getMine(String clientId, MyRequestFilter filter, Pageable pageable) {
+        return page(RequestQueries.ownedBy("clientId", clientId, filter), pageable);
     }
 
-    public Page<SewageRequestResponse> getAssigned(String collectorId, Pageable pageable) {
-        return sewageRequestRepository.findByCollectorId(collectorId, pageable).map(this::toResponse);
+    public Page<SewageRequestResponse> getAssigned(String collectorId, MyRequestFilter filter, Pageable pageable) {
+        return page(RequestQueries.ownedBy("collectorId", collectorId, filter), pageable);
+    }
+
+    private Page<SewageRequestResponse> page(Query query, Pageable pageable) {
+        long total = mongoTemplate.count(query, SewageRequest.class);
+        List<SewageRequestResponse> content = mongoTemplate.find(query.with(pageable), SewageRequest.class).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, total);
     }
 
     /** See CollectionRequestService.assign() - same accept/decline-pending semantics. */
@@ -143,8 +157,8 @@ public class SewageRequestService {
         if (!collectorId.equals(existing.getCollectorId())) {
             throw new CustomException("Only the assigned collector can decline this request");
         }
-        if (existing.getStatus() != CollectionStatus.ASSIGNED) {
-            throw new CustomException("Can only decline a request that's awaiting acceptance (current: " + existing.getStatus() + ")");
+        if (existing.getStatus() != CollectionStatus.ASSIGNED && existing.getStatus() != CollectionStatus.ACCEPTED) {
+            throw new CustomException("Can only decline before starting the job (current: " + existing.getStatus() + ")");
         }
 
         UserSummary collector = userSummaryService.findById(collectorId).orElse(null);
@@ -161,12 +175,142 @@ public class SewageRequestService {
         if (!collectorId.equals(existing.getCollectorId())) {
             throw new CustomException("Only the assigned collector can update this request's status");
         }
+        JobStatusRules.requireCollectorMove(existing.getStatus(), newStatus);
         existing.setStatus(newStatus);
         SewageRequest saved = sewageRequestRepository.save(existing);
         if (newStatus == CollectionStatus.COMPLETED) {
             notifyCompletion(saved);
         }
         return toResponse(saved);
+    }
+
+    /**
+     * The collector confirms they're taking the job (ASSIGNED to ACCEPTED), so a
+     * client can tell a collector who has committed from one who has only been
+     * offered it. Starting the job straight away through /status still works and
+     * counts as accepting.
+     */
+    public SewageRequestResponse accept(String id, String collectorId) {
+        SewageRequest existing = findOrThrow(id);
+        if (!collectorId.equals(existing.getCollectorId())) {
+            throw new CustomException("Only the assigned collector can accept this request");
+        }
+        if (existing.getStatus() != CollectionStatus.ASSIGNED) {
+            throw new CustomException("Can only accept a request that's awaiting acceptance (current: " + existing.getStatus() + ")");
+        }
+        existing.setStatus(CollectionStatus.ACCEPTED);
+        SewageRequest saved = sewageRequestRepository.save(existing);
+        notifyAccepted(saved);
+        return toResponse(saved);
+    }
+
+    /** The client confirms a completed job was done. Final: a confirmed job can no longer be disputed. */
+    public SewageRequestResponse confirm(String id, String clientId) {
+        SewageRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can confirm this request");
+        }
+        if (existing.getStatus() != CollectionStatus.COMPLETED) {
+            throw new CustomException("Can only confirm a completed request (current: " + existing.getStatus() + ")");
+        }
+        if (existing.getConfirmedAt() != null) {
+            throw new CustomException("This request has already been confirmed");
+        }
+        existing.setConfirmedAt(Instant.now());
+        return toResponse(sewageRequestRepository.save(existing));
+    }
+
+    /**
+     * The client disputes a completed job that wasn't actually done properly.
+     * Moves it to DISPUTED, which an admin sees in the admin listings and stats
+     * and resolves with a status override. Only before the client has confirmed.
+     */
+    public SewageRequestResponse dispute(String id, String clientId, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new CustomException("A reason is required to dispute a request");
+        }
+        SewageRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can dispute this request");
+        }
+        if (existing.getStatus() != CollectionStatus.COMPLETED) {
+            throw new CustomException("Can only dispute a completed request (current: " + existing.getStatus() + ")");
+        }
+        if (existing.getConfirmedAt() != null) {
+            throw new CustomException("This request was already confirmed, so it can no longer be disputed");
+        }
+        existing.setStatus(CollectionStatus.DISPUTED);
+        existing.setDisputeReason(reason.trim());
+        SewageRequest saved = sewageRequestRepository.save(existing);
+        notifyDisputed(saved, saved.getDisputeReason());
+        return toResponse(saved);
+    }
+
+    /** See CollectionRequestService.update() - same rules, with the sewage fields. */
+    public SewageRequestResponse update(String id, String clientId, SewageRequestUpdateRequest request) {
+        SewageRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can edit this request");
+        }
+        boolean editable = existing.getStatus() == CollectionStatus.PENDING
+                || existing.getStatus() == CollectionStatus.ASSIGNED
+                || existing.getStatus() == CollectionStatus.ACCEPTED;
+        if (!editable) {
+            throw new CustomException("Cannot edit a request that's already " + existing.getStatus());
+        }
+
+        String savedLocationId = StringUtils.hasText(request.getSavedLocationId()) ? request.getSavedLocationId() : null;
+        boolean movesPickup = savedLocationId != null || request.getLocation() != null;
+        boolean materialChange = request.getTankVolumeLiters() != null || request.getUrgency() != null
+                || request.getScheduledAt() != null || request.getAccessNotes() != null || movesPickup;
+        if (!materialChange && request.getNotes() == null) {
+            throw new CustomException("Nothing to update - provide at least one field");
+        }
+        if (materialChange && existing.getScheduledAt() != null
+                && ChronoUnit.HOURS.between(Instant.now(), existing.getScheduledAt()) < cancellationCutoffHours) {
+            throw new CustomException("Too close to the scheduled time to change it - contact support instead");
+        }
+
+        if (request.getTankVolumeLiters() != null) {
+            existing.setTankVolumeLiters(request.getTankVolumeLiters());
+        }
+        if (request.getUrgency() != null) {
+            existing.setUrgency(request.getUrgency());
+        }
+        if (request.getScheduledAt() != null) {
+            existing.setScheduledAt(request.getScheduledAt());
+        }
+        if (request.getAccessNotes() != null) {
+            existing.setAccessNotes(request.getAccessNotes());
+        }
+        if (movesPickup) {
+            existing.setLocation(resolveLocation(clientId, savedLocationId, request.getLocation()));
+        }
+        if (request.getNotes() != null) {
+            existing.setNotes(request.getNotes());
+        }
+
+        boolean collectorHoldsJob = existing.getCollectorId() != null;
+        if (materialChange && collectorHoldsJob && existing.getStatus() == CollectionStatus.ACCEPTED) {
+            existing.setStatus(CollectionStatus.ASSIGNED);
+        }
+        SewageRequest saved = sewageRequestRepository.save(existing);
+        if (materialChange && collectorHoldsJob) {
+            notifyJobUpdated(saved);
+        }
+        return toResponse(saved);
+    }
+
+    /** Pending sewage requests within radiusKm, nearest first - the sewage twin of the collections nearby search. */
+    public List<SewageRequestResponse> findNearby(double latitude, double longitude, double radiusKm) {
+        GeoJsonPoint point = new GeoJsonPoint(longitude, latitude);
+        Query query = new Query(
+                Criteria.where("location.coordinates").nearSphere(point).maxDistance(radiusKm * 1000)
+        ).addCriteria(Criteria.where("status").is(CollectionStatus.PENDING));
+
+        return mongoTemplate.find(query, SewageRequest.class).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     /** Client-controlled - a collector who thinks the price is too low uses decline(), not this. */
@@ -246,7 +390,7 @@ public class SewageRequestService {
     // them - so every one is ADMIN-only at the controller and logs who did what.
     // They don't apply the client-facing rules (cancellation cutoff, assign only
     // while PENDING/ASSIGNED); they enforce data invariants instead: a collector
-    // must be set for ASSIGNED/IN_PROGRESS/COMPLETED, and a PENDING request has none.
+    // must be set for ASSIGNED/ACCEPTED/IN_PROGRESS/COMPLETED, and a PENDING request has none.
     // ------------------------------------------------------------------
 
     public Page<SewageRequestResponse> adminSearch(AdminRequestFilter filter, Pageable pageable) {
@@ -294,6 +438,7 @@ public class SewageRequestService {
             throw new CustomException("This request is already " + newStatus);
         }
         boolean needsCollector = newStatus == CollectionStatus.ASSIGNED
+                || newStatus == CollectionStatus.ACCEPTED
                 || newStatus == CollectionStatus.IN_PROGRESS
                 || newStatus == CollectionStatus.COMPLETED;
         if (needsCollector && existing.getCollectorId() == null) {
@@ -444,16 +589,60 @@ public class SewageRequestService {
     }
 
     private void notifyCompletion(SewageRequest request) {
-        // No rating feature for sewage requests yet, so no rating prompt.
         userSummaryService.findById(request.getClientId()).ifPresent(client ->
                 mailService.sendRequestCompleted(
                         client.getEmail(),
                         client.preferredName(),
                         request.getId(),
                         SERVICE_TYPE,
-                        false,
+                        true,
                         request.getQuotedPrice(),
                         request.getCurrency()
+                ));
+    }
+
+    private void notifyAccepted(SewageRequest request) {
+        String collectorName = userSummaryService.findById(request.getCollectorId())
+                .map(UserSummary::preferredName)
+                .orElse("Your collector");
+        userSummaryService.findById(request.getClientId()).ifPresent(client ->
+                mailService.sendCollectorAccepted(
+                        client.getEmail(),
+                        client.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        collectorName,
+                        formatScheduledAt(request.getScheduledAt()),
+                        formatLocationSummary(request.getLocation())
+                ));
+    }
+
+    private void notifyDisputed(SewageRequest request, String reason) {
+        if (request.getCollectorId() == null) {
+            return;
+        }
+        userSummaryService.findById(request.getCollectorId()).ifPresent(collector ->
+                mailService.sendJobDisputed(
+                        collector.getEmail(),
+                        collector.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        reason
+                ));
+    }
+
+    private void notifyJobUpdated(SewageRequest request) {
+        if (request.getCollectorId() == null) {
+            return;
+        }
+        userSummaryService.findById(request.getCollectorId()).ifPresent(collector ->
+                mailService.sendJobUpdatedToCollector(
+                        collector.getEmail(),
+                        collector.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        formatScheduledAt(request.getScheduledAt()),
+                        formatLocationSummary(request.getLocation())
                 ));
     }
 
@@ -480,6 +669,8 @@ public class SewageRequestService {
                 .notes(entity.getNotes())
                 .quotedPrice(entity.getQuotedPrice())
                 .currency(entity.getCurrency())
+                .confirmedAt(entity.getConfirmedAt())
+                .disputeReason(entity.getDisputeReason())
                 .cancellationReason(entity.getCancellationReason())
                 .lastDeclineReason(entity.getLastDeclineReason())
                 .createdAt(entity.getCreatedAt())

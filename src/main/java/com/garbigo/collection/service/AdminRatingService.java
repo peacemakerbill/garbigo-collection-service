@@ -3,6 +3,7 @@ package com.garbigo.collection.service;
 import com.garbigo.collection.dto.AdminRatingResponse;
 import com.garbigo.collection.exception.NotFoundException;
 import com.garbigo.collection.model.Rating;
+import com.garbigo.collection.model.RequestType;
 import com.garbigo.collection.repository.RatingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +57,7 @@ public class AdminRatingService {
         return AdminRatingResponse.builder()
                 .id(entity.getId())
                 .collectionRequestId(entity.getCollectionRequestId())
+                .requestType(entity.getRequestType() == null ? RequestType.COLLECTION : entity.getRequestType())
                 .reviewerId(entity.getReviewerId())
                 .collectorId(entity.getCollectorId())
                 .score(entity.getScore())

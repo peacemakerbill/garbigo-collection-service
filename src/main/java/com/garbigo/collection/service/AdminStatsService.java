@@ -323,7 +323,7 @@ public class AdminStatsService {
         }
         switch (status) {
             case COMPLETED -> tally.completed++;
-            case ASSIGNED, IN_PROGRESS -> tally.open++;
+            case ASSIGNED, ACCEPTED, IN_PROGRESS -> tally.open++;
             case DISPUTED -> tally.disputed++;
             default -> {
                 // PENDING / CANCELLED don't count toward a collector's record.

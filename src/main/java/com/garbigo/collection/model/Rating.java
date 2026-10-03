@@ -30,6 +30,9 @@ public class Rating {
     private int score;
     private String comment;
 
+    /** Null on ratings saved before sewage ratings existed - treat as COLLECTION. */
+    private RequestType requestType;
+
     @CreatedDate
     private Instant createdAt;
 }

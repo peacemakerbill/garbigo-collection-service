@@ -19,11 +19,11 @@ public class CollectorPerformanceResponse {
     /** Across collection and sewage requests. */
     private long completedJobs;
 
-    /** Currently ASSIGNED or IN_PROGRESS. */
+    /** Currently ASSIGNED, ACCEPTED or IN_PROGRESS. */
     private long openJobs;
     private long disputedJobs;
 
-    /** Ratings only exist for collection requests. Null when there are none. */
+    /** Across collection and sewage ratings. Null when there are none. */
     private Double averageRating;
     private long ratingCount;
 }

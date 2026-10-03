@@ -4,6 +4,8 @@ import com.garbigo.collection.client.WalletServiceClient;
 import com.garbigo.collection.dto.AdminRequestFilter;
 import com.garbigo.collection.dto.CollectionRequestCreateRequest;
 import com.garbigo.collection.dto.CollectionRequestResponse;
+import com.garbigo.collection.dto.CollectionRequestUpdateRequest;
+import com.garbigo.collection.dto.MyRequestFilter;
 import com.garbigo.collection.dto.WalletPaymentRequest;
 import com.garbigo.collection.dto.WalletPaymentResult;
 import com.garbigo.collection.exception.CustomException;
@@ -17,7 +19,9 @@ import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.CollectionRequestRepository;
 import com.garbigo.collection.util.AdminQueries;
+import com.garbigo.collection.util.JobStatusRules;
 import com.garbigo.collection.util.LocationMapper;
+import com.garbigo.collection.util.RequestQueries;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -134,12 +138,20 @@ public class CollectionRequestService {
         return toResponse(saved);
     }
 
-    public Page<CollectionRequestResponse> getMine(String clientId, Pageable pageable) {
-        return collectionRequestRepository.findByClientId(clientId, pageable).map(this::toResponse);
+    public Page<CollectionRequestResponse> getMine(String clientId, MyRequestFilter filter, Pageable pageable) {
+        return page(RequestQueries.ownedBy("clientId", clientId, filter), pageable);
     }
 
-    public Page<CollectionRequestResponse> getAssigned(String collectorId, Pageable pageable) {
-        return collectionRequestRepository.findByCollectorId(collectorId, pageable).map(this::toResponse);
+    public Page<CollectionRequestResponse> getAssigned(String collectorId, MyRequestFilter filter, Pageable pageable) {
+        return page(RequestQueries.ownedBy("collectorId", collectorId, filter), pageable);
+    }
+
+    private Page<CollectionRequestResponse> page(Query query, Pageable pageable) {
+        long total = mongoTemplate.count(query, CollectionRequest.class);
+        List<CollectionRequestResponse> content = mongoTemplate.find(query.with(pageable), CollectionRequest.class).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, total);
     }
 
     /** PENDING requests within radiusKm of the given point, nearest first - for a collector browsing nearby work. */
@@ -189,7 +201,7 @@ public class CollectionRequestService {
      * reverts to PENDING and clears collectorId, so the client can raise
      * quotedPrice (updateQuote) and re-assign, to the same or a different
      * collector, without creating a new request. Only valid while status is
-     * ASSIGNED (i.e. before the collector has started); once IN_PROGRESS,
+     * ASSIGNED or ACCEPTED (i.e. before the collector has started); once IN_PROGRESS,
      * backing out is a cancellation decision for the client, not this.
      */
     public CollectionRequestResponse decline(String id, String collectorId, String reason) {
@@ -197,8 +209,8 @@ public class CollectionRequestService {
         if (!collectorId.equals(existing.getCollectorId())) {
             throw new CustomException("Only the assigned collector can decline this request");
         }
-        if (existing.getStatus() != CollectionStatus.ASSIGNED) {
-            throw new CustomException("Can only decline a request that's awaiting acceptance (current: " + existing.getStatus() + ")");
+        if (existing.getStatus() != CollectionStatus.ASSIGNED && existing.getStatus() != CollectionStatus.ACCEPTED) {
+            throw new CustomException("Can only decline before starting the job (current: " + existing.getStatus() + ")");
         }
 
         UserSummary collector = userSummaryService.findById(collectorId).orElse(null);
@@ -215,10 +227,128 @@ public class CollectionRequestService {
         if (!collectorId.equals(existing.getCollectorId())) {
             throw new CustomException("Only the assigned collector can update this request's status");
         }
+        JobStatusRules.requireCollectorMove(existing.getStatus(), newStatus);
         existing.setStatus(newStatus);
         CollectionRequest saved = collectionRequestRepository.save(existing);
         if (newStatus == CollectionStatus.COMPLETED) {
             notifyCompletion(saved);
+        }
+        return toResponse(saved);
+    }
+
+    /**
+     * The collector confirms they're taking the job (ASSIGNED to ACCEPTED), so a
+     * client can tell a collector who has committed from one who has only been
+     * offered it. Starting the job straight away through /status still works and
+     * counts as accepting.
+     */
+    public CollectionRequestResponse accept(String id, String collectorId) {
+        CollectionRequest existing = findOrThrow(id);
+        if (!collectorId.equals(existing.getCollectorId())) {
+            throw new CustomException("Only the assigned collector can accept this request");
+        }
+        if (existing.getStatus() != CollectionStatus.ASSIGNED) {
+            throw new CustomException("Can only accept a request that's awaiting acceptance (current: " + existing.getStatus() + ")");
+        }
+        existing.setStatus(CollectionStatus.ACCEPTED);
+        CollectionRequest saved = collectionRequestRepository.save(existing);
+        notifyAccepted(saved);
+        return toResponse(saved);
+    }
+
+    /** The client confirms a completed job was done. Final: a confirmed job can no longer be disputed. */
+    public CollectionRequestResponse confirm(String id, String clientId) {
+        CollectionRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can confirm this request");
+        }
+        if (existing.getStatus() != CollectionStatus.COMPLETED) {
+            throw new CustomException("Can only confirm a completed request (current: " + existing.getStatus() + ")");
+        }
+        if (existing.getConfirmedAt() != null) {
+            throw new CustomException("This request has already been confirmed");
+        }
+        existing.setConfirmedAt(Instant.now());
+        return toResponse(collectionRequestRepository.save(existing));
+    }
+
+    /**
+     * The client disputes a completed job that wasn't actually done properly.
+     * Moves it to DISPUTED, which an admin sees in the admin listings and stats
+     * and resolves with a status override. Only before the client has confirmed.
+     */
+    public CollectionRequestResponse dispute(String id, String clientId, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new CustomException("A reason is required to dispute a request");
+        }
+        CollectionRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can dispute this request");
+        }
+        if (existing.getStatus() != CollectionStatus.COMPLETED) {
+            throw new CustomException("Can only dispute a completed request (current: " + existing.getStatus() + ")");
+        }
+        if (existing.getConfirmedAt() != null) {
+            throw new CustomException("This request was already confirmed, so it can no longer be disputed");
+        }
+        existing.setStatus(CollectionStatus.DISPUTED);
+        existing.setDisputeReason(reason.trim());
+        CollectionRequest saved = collectionRequestRepository.save(existing);
+        notifyDisputed(saved, saved.getDisputeReason());
+        return toResponse(saved);
+    }
+
+    /**
+     * Lets the client change a request instead of cancelling and rebooking.
+     * Allowed until the collector starts (PENDING, ASSIGNED, ACCEPTED). Changing
+     * the date, location or waste type on a job a collector already holds sends
+     * it back to ASSIGNED, so they have to accept the new details, and emails
+     * them; changing notes alone does neither. Those changes follow the same
+     * cutoff as cancelling: close to the pickup time, contact support instead.
+     */
+    public CollectionRequestResponse update(String id, String clientId, CollectionRequestUpdateRequest request) {
+        CollectionRequest existing = findOrThrow(id);
+        if (!clientId.equals(existing.getClientId())) {
+            throw new CustomException("Only the requesting client can edit this request");
+        }
+        boolean editable = existing.getStatus() == CollectionStatus.PENDING
+                || existing.getStatus() == CollectionStatus.ASSIGNED
+                || existing.getStatus() == CollectionStatus.ACCEPTED;
+        if (!editable) {
+            throw new CustomException("Cannot edit a request that's already " + existing.getStatus());
+        }
+
+        String savedLocationId = StringUtils.hasText(request.getSavedLocationId()) ? request.getSavedLocationId() : null;
+        boolean movesPickup = savedLocationId != null || request.getLocation() != null;
+        boolean materialChange = request.getWasteType() != null || request.getScheduledAt() != null || movesPickup;
+        if (!materialChange && request.getNotes() == null) {
+            throw new CustomException("Nothing to update - provide at least one field");
+        }
+        if (materialChange && existing.getScheduledAt() != null
+                && ChronoUnit.HOURS.between(Instant.now(), existing.getScheduledAt()) < cancellationCutoffHours) {
+            throw new CustomException("Too close to the scheduled time to change it - contact support instead");
+        }
+
+        if (request.getWasteType() != null) {
+            existing.setWasteType(request.getWasteType());
+        }
+        if (request.getScheduledAt() != null) {
+            existing.setScheduledAt(request.getScheduledAt());
+        }
+        if (movesPickup) {
+            existing.setLocation(resolveLocation(clientId, savedLocationId, request.getLocation()));
+        }
+        if (request.getNotes() != null) {
+            existing.setNotes(request.getNotes());
+        }
+
+        boolean collectorHoldsJob = existing.getCollectorId() != null;
+        if (materialChange && collectorHoldsJob && existing.getStatus() == CollectionStatus.ACCEPTED) {
+            existing.setStatus(CollectionStatus.ASSIGNED);
+        }
+        CollectionRequest saved = collectionRequestRepository.save(existing);
+        if (materialChange && collectorHoldsJob) {
+            notifyJobUpdated(saved);
         }
         return toResponse(saved);
     }
@@ -313,7 +443,7 @@ public class CollectionRequestService {
     // them - so every one is ADMIN-only at the controller and logs who did what.
     // They don't apply the client-facing rules (cancellation cutoff, assign only
     // while PENDING/ASSIGNED); they enforce data invariants instead: a collector
-    // must be set for ASSIGNED/IN_PROGRESS/COMPLETED, and a PENDING request has none.
+    // must be set for ASSIGNED/ACCEPTED/IN_PROGRESS/COMPLETED, and a PENDING request has none.
     // ------------------------------------------------------------------
 
     public Page<CollectionRequestResponse> adminSearch(AdminRequestFilter filter, Pageable pageable) {
@@ -361,6 +491,7 @@ public class CollectionRequestService {
             throw new CustomException("This request is already " + newStatus);
         }
         boolean needsCollector = newStatus == CollectionStatus.ASSIGNED
+                || newStatus == CollectionStatus.ACCEPTED
                 || newStatus == CollectionStatus.IN_PROGRESS
                 || newStatus == CollectionStatus.COMPLETED;
         if (needsCollector && existing.getCollectorId() == null) {
@@ -522,6 +653,51 @@ public class CollectionRequestService {
                 ));
     }
 
+    private void notifyAccepted(CollectionRequest request) {
+        String collectorName = userSummaryService.findById(request.getCollectorId())
+                .map(UserSummary::preferredName)
+                .orElse("Your collector");
+        userSummaryService.findById(request.getClientId()).ifPresent(client ->
+                mailService.sendCollectorAccepted(
+                        client.getEmail(),
+                        client.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        collectorName,
+                        formatScheduledAt(request.getScheduledAt()),
+                        formatLocationSummary(request.getLocation())
+                ));
+    }
+
+    private void notifyDisputed(CollectionRequest request, String reason) {
+        if (request.getCollectorId() == null) {
+            return;
+        }
+        userSummaryService.findById(request.getCollectorId()).ifPresent(collector ->
+                mailService.sendJobDisputed(
+                        collector.getEmail(),
+                        collector.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        reason
+                ));
+    }
+
+    private void notifyJobUpdated(CollectionRequest request) {
+        if (request.getCollectorId() == null) {
+            return;
+        }
+        userSummaryService.findById(request.getCollectorId()).ifPresent(collector ->
+                mailService.sendJobUpdatedToCollector(
+                        collector.getEmail(),
+                        collector.preferredName(),
+                        request.getId(),
+                        SERVICE_TYPE,
+                        formatScheduledAt(request.getScheduledAt()),
+                        formatLocationSummary(request.getLocation())
+                ));
+    }
+
     private String formatScheduledAt(Instant scheduledAt) {
         return scheduledAt == null ? "TBD" : SCHEDULED_AT_FORMAT.format(scheduledAt.atZone(ZoneOffset.UTC));
     }
@@ -543,6 +719,8 @@ public class CollectionRequestService {
                 .notes(entity.getNotes())
                 .quotedPrice(entity.getQuotedPrice())
                 .currency(entity.getCurrency())
+                .confirmedAt(entity.getConfirmedAt())
+                .disputeReason(entity.getDisputeReason())
                 .cancellationReason(entity.getCancellationReason())
                 .lastDeclineReason(entity.getLastDeclineReason())
                 .createdAt(entity.getCreatedAt())

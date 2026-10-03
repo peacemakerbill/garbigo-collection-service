@@ -4,6 +4,7 @@ package com.garbigo.collection.model;
 public enum CollectionStatus {
     PENDING,
     ASSIGNED,
+    ACCEPTED,
     IN_PROGRESS,
     COMPLETED,
     CANCELLED,

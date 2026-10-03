@@ -216,7 +216,7 @@ public class MailService {
                 "email/collector-declined", variables);
     }
 
-    /** Sent to the client when a request's status becomes COMPLETED. showRatingPrompt is false for sewage requests (no rating feature there). */
+    /** Sent to the client when a request's status becomes COMPLETED. showRatingPrompt invites a rating - true for both kinds of request now. */
     public void sendRequestCompleted(
             String toEmail,
             String recipientName,
@@ -234,6 +234,69 @@ public class MailService {
         putPrice(variables, quotedPrice, currency);
 
         send(toEmail, "Your " + serviceType.toLowerCase() + " is complete", "email/request-completed", variables);
+    }
+
+    /** Sent to the client when the collector they were offered confirms they're taking the job. */
+    public void sendCollectorAccepted(
+            String toEmail,
+            String recipientName,
+            String requestId,
+            String serviceType,
+            String collectorName,
+            String scheduledAt,
+            String locationSummary) {
+
+        Map<String, Object> variables = Map.of(
+                "recipientName", displayName(recipientName),
+                "requestId", requestId,
+                "serviceType", serviceType,
+                "collectorName", collectorName,
+                "scheduledAt", scheduledAt,
+                "locationSummary", locationSummary
+        );
+
+        send(toEmail, "Your collector has accepted your " + serviceType.toLowerCase() + " request",
+                "email/collector-accepted", variables);
+    }
+
+    /** Sent to the collector when the client disputes a job they marked completed. */
+    public void sendJobDisputed(
+            String toEmail,
+            String recipientName,
+            String requestId,
+            String serviceType,
+            String reason) {
+
+        Map<String, Object> variables = Map.of(
+                "recipientName", displayName(recipientName),
+                "requestId", requestId,
+                "serviceType", serviceType,
+                "reason", reason == null || reason.isBlank() ? "No reason given" : reason
+        );
+
+        send(toEmail, "A client disputed your " + serviceType.toLowerCase() + " job",
+                "email/job-disputed", variables);
+    }
+
+    /** Sent to the collector when the client changes the date, place or details of a job they hold. */
+    public void sendJobUpdatedToCollector(
+            String toEmail,
+            String recipientName,
+            String requestId,
+            String serviceType,
+            String scheduledAt,
+            String locationSummary) {
+
+        Map<String, Object> variables = Map.of(
+                "recipientName", displayName(recipientName),
+                "requestId", requestId,
+                "serviceType", serviceType,
+                "scheduledAt", scheduledAt,
+                "locationSummary", locationSummary
+        );
+
+        send(toEmail, "A " + serviceType.toLowerCase() + " job you hold has changed",
+                "email/job-updated-collector", variables);
     }
 
     private String displayName(String recipientName) {

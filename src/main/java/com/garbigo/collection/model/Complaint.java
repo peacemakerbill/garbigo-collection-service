@@ -23,6 +23,9 @@ public class Complaint {
     private String collectionRequestId;
     private String reporterId;
     private ComplaintCategory category;
+
+    /** Null on complaints filed before sewage complaints existed - treat as COLLECTION. */
+    private RequestType requestType;
     private String description;
     private ComplaintStatus status;
 

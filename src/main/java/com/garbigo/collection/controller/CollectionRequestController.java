@@ -2,6 +2,8 @@ package com.garbigo.collection.controller;
 
 import com.garbigo.collection.dto.CollectionRequestCreateRequest;
 import com.garbigo.collection.dto.CollectionRequestResponse;
+import com.garbigo.collection.dto.CollectionRequestUpdateRequest;
+import com.garbigo.collection.dto.MyRequestFilter;
 import com.garbigo.collection.dto.RatingCreateRequest;
 import com.garbigo.collection.dto.RatingResponse;
 import com.garbigo.collection.model.CollectionStatus;
@@ -12,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -55,15 +59,29 @@ public class CollectionRequestController {
     @GetMapping("/mine")
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Page<CollectionRequestResponse>> getMine(
-            Authentication authentication, @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(collectionRequestService.getMine(authentication.getName(), pageable));
+            Authentication authentication,
+            @RequestParam(required = false) CollectionStatus status,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) Instant scheduledFrom,
+            @RequestParam(required = false) Instant scheduledTo,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        MyRequestFilter filter = MyRequestFilter.builder()
+                .status(status).active(active).scheduledFrom(scheduledFrom).scheduledTo(scheduledTo).build();
+        return ResponseEntity.ok(collectionRequestService.getMine(authentication.getName(), filter, pageable));
     }
 
     @GetMapping("/assigned")
     @PreAuthorize("hasRole('COLLECTOR')")
     public ResponseEntity<Page<CollectionRequestResponse>> getAssigned(
-            Authentication authentication, @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(collectionRequestService.getAssigned(authentication.getName(), pageable));
+            Authentication authentication,
+            @RequestParam(required = false) CollectionStatus status,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) Instant scheduledFrom,
+            @RequestParam(required = false) Instant scheduledTo,
+            @PageableDefault(size = 20, sort = "scheduledAt", direction = Sort.Direction.ASC) Pageable pageable) {
+        MyRequestFilter filter = MyRequestFilter.builder()
+                .status(status).active(active).scheduledFrom(scheduledFrom).scheduledTo(scheduledTo).build();
+        return ResponseEntity.ok(collectionRequestService.getAssigned(authentication.getName(), filter, pageable));
     }
 
     @GetMapping("/nearby")
@@ -73,6 +91,35 @@ public class CollectionRequestController {
             @RequestParam double lng,
             @RequestParam(defaultValue = "10") double radiusKm) {
         return ResponseEntity.ok(collectionRequestService.findNearby(lat, lng, radiusKm));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<CollectionRequestResponse> update(
+            Authentication authentication,
+            @PathVariable String id,
+            @Valid @RequestBody CollectionRequestUpdateRequest request) {
+        return ResponseEntity.ok(collectionRequestService.update(id, authentication.getName(), request));
+    }
+
+    @PutMapping("/{id}/accept")
+    @PreAuthorize("hasRole('COLLECTOR')")
+    public ResponseEntity<CollectionRequestResponse> accept(Authentication authentication, @PathVariable String id) {
+        return ResponseEntity.ok(collectionRequestService.accept(id, authentication.getName()));
+    }
+
+    @PutMapping("/{id}/confirm")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<CollectionRequestResponse> confirm(Authentication authentication, @PathVariable String id) {
+        return ResponseEntity.ok(collectionRequestService.confirm(id, authentication.getName()));
+    }
+
+    /** reason is optional here only so a missing one gets the service's clear 400 rather than a bare MVC error. */
+    @PutMapping("/{id}/dispute")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<CollectionRequestResponse> dispute(
+            Authentication authentication, @PathVariable String id, @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(collectionRequestService.dispute(id, authentication.getName(), reason));
     }
 
     @PutMapping("/{id}/assign")

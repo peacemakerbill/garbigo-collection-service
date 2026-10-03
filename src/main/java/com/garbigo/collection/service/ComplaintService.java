@@ -7,10 +7,12 @@ import com.garbigo.collection.exception.NotFoundException;
 import com.garbigo.collection.model.Complaint;
 import com.garbigo.collection.model.ComplaintCategory;
 import com.garbigo.collection.model.ComplaintStatus;
+import com.garbigo.collection.model.RequestType;
 import com.garbigo.collection.model.UserSummary;
 import com.garbigo.collection.notification.MailService;
 import com.garbigo.collection.repository.CollectionRequestRepository;
 import com.garbigo.collection.repository.ComplaintRepository;
+import com.garbigo.collection.repository.SewageRequestRepository;
 import feign.RetryableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,7 @@ public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
     private final CollectionRequestRepository collectionRequestRepository;
+    private final SewageRequestRepository sewageRequestRepository;
     private final UserSummaryService userSummaryService;
     private final MailService mailService;
     private final MongoTemplate mongoTemplate;
@@ -48,13 +51,12 @@ public class ComplaintService {
      * IDs exist (same rule as getById on the requests themselves).
      */
     public ComplaintResponse create(String reporterId, ComplaintCreateRequest request) {
-        collectionRequestRepository.findById(request.getCollectionRequestId())
-                .filter(target -> reporterId.equals(target.getClientId()) || reporterId.equals(target.getCollectorId()))
-                .orElseThrow(() -> new NotFoundException("Collection request not found: " + request.getCollectionRequestId()));
+        RequestType requestType = partyRequestType(reporterId, request.getCollectionRequestId());
 
         Complaint saved = complaintRepository.save(
                 Complaint.builder()
                         .collectionRequestId(request.getCollectionRequestId())
+                        .requestType(requestType)
                         .reporterId(reporterId)
                         .category(request.getCategory())
                         .description(request.getDescription())
@@ -62,6 +64,29 @@ public class ComplaintService {
                         .build()
         );
         return toResponse(saved);
+    }
+
+    /**
+     * Which kind of request the reporter is a party to. The field is still called
+     * collectionRequestId, but it can now hold a sewage request's id - ids are
+     * unique across both, so whichever collection has it is the answer. A request
+     * that doesn't exist and one the reporter has no part in give the same 404,
+     * so this can't be used to probe which ids exist.
+     */
+    private RequestType partyRequestType(String reporterId, String requestId) {
+        boolean collectionParty = collectionRequestRepository.findById(requestId)
+                .filter(target -> reporterId.equals(target.getClientId()) || reporterId.equals(target.getCollectorId()))
+                .isPresent();
+        if (collectionParty) {
+            return RequestType.COLLECTION;
+        }
+        boolean sewageParty = sewageRequestRepository.findById(requestId)
+                .filter(target -> reporterId.equals(target.getClientId()) || reporterId.equals(target.getCollectorId()))
+                .isPresent();
+        if (sewageParty) {
+            return RequestType.SEWAGE;
+        }
+        throw new NotFoundException("Request not found: " + requestId);
     }
 
     public Page<ComplaintResponse> getMine(String reporterId, Pageable pageable) {
@@ -169,6 +194,7 @@ public class ComplaintService {
         return ComplaintResponse.builder()
                 .id(entity.getId())
                 .collectionRequestId(entity.getCollectionRequestId())
+                .requestType(entity.getRequestType() == null ? RequestType.COLLECTION : entity.getRequestType())
                 .reporterId(entity.getReporterId())
                 .reporterName(reporter == null ? null : reporter.preferredName())
                 .reporterEmail(reporter == null ? null : reporter.getEmail())
